@@ -98,22 +98,9 @@ async function redeemStub(
       return { status: 'error', message: 'Failed to redeem stub.' }
     }
   } else {
-    // 3. Automatic Minting — create and immediately claim the stub
-    const { error: insertError } = await supabase
-      .from('claim_stubs')
-      .insert({
-        beneficiary_uuid: beneficiaryUuid,
-        disaster_event_id: disasterId,
-        aid_type: aidType,
-        token_hash: crypto.randomBytes(32).toString('hex'),
-        claimed: true,
-        claimed_by: workerId,
-        claimed_at: new Date().toISOString(),
-      })
-
-    if (insertError) {
-      console.error('Minting error:', insertError)
-      return { status: 'error', message: 'Failed to automatically mint and distribute aid.' }
+    return {
+      status: 'error',
+      message: 'No claim stub found — this beneficiary is not eligible for this aid type in this disaster.',
     }
   }
 
