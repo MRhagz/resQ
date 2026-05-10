@@ -2,14 +2,20 @@
 
 import { useActionState, useState } from 'react'
 import { distributeAid } from '../../actions/worker'
+import { Scanner } from '@yudiel/react-qr-scanner'
 
 export default function WorkerDashboardClient({ disasters }: { disasters: any[] }) {
   const [state, formAction, isPending] = useActionState(distributeAid, null)
   const [scannedHash, setScannedHash] = useState('')
+  const [isScanning, setIsScanning] = useState(false)
 
-  const simulateScan = () => {
-    // Generate a mock hash to test deduplication
-    setScannedHash('0xabc123_BENEFICIARY_MOCK_HASH_999')
+  const handleScan = (detectedCodes: any[]) => {
+    if (detectedCodes && detectedCodes.length > 0) {
+      const value = detectedCodes[0].rawValue;
+      console.log('Scanned QR:', value);
+      setScannedHash(value);
+      setIsScanning(false);
+    }
   }
 
   return (
@@ -59,12 +65,21 @@ export default function WorkerDashboardClient({ disasters }: { disasters: any[] 
             </div>
             <button
               type="button"
-              onClick={simulateScan}
+              onClick={() => setIsScanning(!isScanning)}
               className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 font-bold"
             >
-              Simulate QR Scan
+              {isScanning ? 'Stop Scanner' : 'Scan QR Code'}
             </button>
           </div>
+
+          {isScanning && (
+            <div className="mt-4 border rounded-md overflow-hidden bg-black max-w-sm mx-auto">
+              <Scanner
+                onScan={handleScan}
+                onError={(error) => console.error(error)}
+              />
+            </div>
+          )}
         </div>
 
         {/* Physical Verification & Submit */}
