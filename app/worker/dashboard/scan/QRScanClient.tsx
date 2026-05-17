@@ -1,39 +1,19 @@
 "use client"
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { distributeAid } from '@/app/actions/worker'
+import { parsePhilSysQR, scanQRFromVideo, type PhilSysData } from '@/utils/philsys'
 
 type ScanState = 'idle' | 'scanning' | 'processing' | 'found'
 
-interface BeneficiaryInfo {
-  fullName: string
-  firstName: string
-  middleName: string
-  lastName: string
-  suffix: string
-  sex: string
-  dateOfBirth: string
-  placeOfBirth: string
-  address: string
-  philsysNumber: string
+// Extend PhilSysData with optional photo for display
+interface BeneficiaryInfo extends PhilSysData {
   photo: string | null
 }
 
-const MOCK_BENEFICIARY: BeneficiaryInfo = {
-  fullName: 'JUAN ANDRES DELA CRUZ',
-  firstName: 'JUAN ANDRES',
-  middleName: 'SANTOS',
-  lastName: 'DELA CRUZ',
-  suffix: '',
-  sex: 'Male',
-  dateOfBirth: '1985-03-15',
-  placeOfBirth: 'Manila, Metro Manila',
-  address: 'Brgy. San Antonio, Cainta, Rizal',
-  philsysNumber: 'PSN-XXXX-XXXX-1234',
-  photo: null,
-}
+
 
 export default function QRScanClient() {
   const router = useRouter()
@@ -46,14 +26,33 @@ export default function QRScanClient() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraError, setCameraError] = useState('')
+  const [hasBarcodeApi, setHasBarcodeApi] = useState(false)
+  const scanAbortRef = useRef<AbortController | null>(null)
 
-  // Session params from lock-in (in production, use context/cookies)
+  // Session params from lock-in
   const sessionDisasterId = searchParams.get('disaster') ?? '1'
   const sessionAidType = searchParams.get('aid') ?? 'Food Ration'
 
-  // Start camera
+  // Process a raw QR string into beneficiary info
+  const processQRData = useCallback((rawData: string) => {
+    setScanState('processing')
+    const parsed = parsePhilSysQR(rawData)
+    if (parsed) {
+      setTimeout(() => {
+        setBeneficiary({ ...parsed, photo: null })
+        setScanState('found')
+      }, 800)
+    } else {
+      setResult({ status: 'error', message: 'Invalid QR code — not a recognized PhilSys format.' })
+      setScanState('idle')
+    }
+  }, [])
+
+  // Start camera and QR scanning
   useEffect(() => {
     let stream: MediaStream | null = null
+    const apiAvailable = 'BarcodeDetector' in window
+    setHasBarcodeApi(apiAvailable)
 
     async function startCamera() {
       try {
@@ -73,28 +72,43 @@ export default function QRScanClient() {
     startCamera()
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop())
-      }
+      if (stream) stream.getTracks().forEach(t => t.stop())
+      if (scanAbortRef.current) scanAbortRef.current.abort()
     }
   }, [])
 
-  const handleSimulateScan = async () => {
+  // Start real-time QR scanning when camera is active and idle
+  useEffect(() => {
+    if (!cameraActive || !hasBarcodeApi || scanState !== 'idle' || !videoRef.current) return
+
+    // Abort previous scan loop
+    if (scanAbortRef.current) scanAbortRef.current.abort()
+    const controller = new AbortController()
+    scanAbortRef.current = controller
+
     setScanState('scanning')
     setScanProgress(0)
 
-    // Animate scanning progress
-    for (let i = 0; i <= 100; i += 5) {
-      await new Promise(r => setTimeout(r, 40))
-      setScanProgress(i)
+    // Animate progress while scanning
+    let progress = 0
+    const progressInterval = setInterval(() => {
+      progress = Math.min(progress + 2, 95)
+      setScanProgress(progress)
+    }, 200)
+
+    scanQRFromVideo(videoRef.current, (data) => {
+      clearInterval(progressInterval)
+      setScanProgress(100)
+      processQRData(data)
+    }, controller.signal)
+
+    return () => {
+      clearInterval(progressInterval)
+      controller.abort()
     }
+  }, [cameraActive, hasBarcodeApi, scanState, processQRData])
 
-    setScanState('processing')
-    await new Promise(r => setTimeout(r, 1000))
 
-    setBeneficiary(MOCK_BENEFICIARY)
-    setScanState('found')
-  }
 
   const handleConfirm = async () => {
     if (!beneficiary) return
@@ -251,17 +265,15 @@ export default function QRScanClient() {
               )}
             </div>
 
-            {/* Scan button */}
-            {scanState === 'idle' && (
-              <button
-                onClick={handleSimulateScan}
-                className="w-full mt-4 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold tracking-wide uppercase shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+            {/* Auto-scan status */}
+            {scanState === 'idle' && cameraActive && (
+              <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                <svg className="w-4 h-4 text-blue-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                Simulate QR Scan
-              </button>
+                <p className="text-xs font-medium text-blue-300">Place PhilSys QR in frame — auto-detecting...</p>
+              </div>
             )}
 
             {scanState === 'scanning' && (
