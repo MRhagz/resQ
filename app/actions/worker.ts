@@ -68,7 +68,7 @@ async function redeemStub(
   aidType: string,
   workerId: string
 ) {
-  // 2. Find unclaimed stub
+  // 1. Check if a stub already exists
   const { data: stub, error: findError } = await supabase
     .from('claim_stubs')
     .select('id, claimed')
@@ -77,31 +77,44 @@ async function redeemStub(
     .eq('aid_type', aidType)
     .single()
 
-  if (findError || !stub) {
-    return {
-      status: 'error',
-      message: 'No claim stub found — this beneficiary is not eligible for this aid type in this disaster.',
+  if (stub) {
+    if (stub.claimed) {
+      return { status: 'error', message: 'Already claimed! This aid has already been distributed.' }
     }
-  }
 
-  if (stub.claimed) {
-    return { status: 'error', message: 'Already claimed! This aid has already been distributed.' }
-  }
+    // 2. Redeem existing stub
+    const { error: updateError } = await supabase
+      .from('claim_stubs')
+      .update({
+        claimed: true,
+        claimed_by: workerId,
+        claimed_at: new Date().toISOString(),
+      })
+      .eq('id', stub.id)
+      .eq('claimed', false)
 
-  // 3. Redeem — mark as claimed
-  const { error: updateError } = await supabase
-    .from('claim_stubs')
-    .update({
-      claimed: true,
-      claimed_by: workerId,
-      claimed_at: new Date().toISOString(),
-    })
-    .eq('id', stub.id)
-    .eq('claimed', false) // double-check to prevent race conditions
+    if (updateError) {
+      console.error('Redeem error:', updateError)
+      return { status: 'error', message: 'Failed to redeem stub.' }
+    }
+  } else {
+    // 3. Automatic Minting — create and immediately claim the stub
+    const { error: insertError } = await supabase
+      .from('claim_stubs')
+      .insert({
+        beneficiary_uuid: beneficiaryUuid,
+        disaster_event_id: disasterId,
+        aid_type: aidType,
+        token_hash: crypto.randomBytes(32).toString('hex'),
+        claimed: true,
+        claimed_by: workerId,
+        claimed_at: new Date().toISOString(),
+      })
 
-  if (updateError) {
-    console.error('Redeem error:', updateError)
-    return { status: 'error', message: 'Failed to redeem stub.' }
+    if (insertError) {
+      console.error('Minting error:', insertError)
+      return { status: 'error', message: 'Failed to automatically mint and distribute aid.' }
+    }
   }
 
   return { status: 'success', message: 'Aid successfully distributed! Claim stub redeemed.' }

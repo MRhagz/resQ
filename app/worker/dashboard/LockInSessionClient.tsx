@@ -4,11 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 
-const MOCK_DISASTERS = [
-  { id: '1', system_code: 'TY-2026-001', name: 'Typhoon Aghon' },
-  { id: '2', system_code: 'EQ-2026-003', name: 'Mindanao Earthquake 6.2' },
-  { id: '3', system_code: 'FL-2026-007', name: 'Cagayan Valley Flooding' },
-]
+
 
 const AID_TYPES = [
   { value: 'Food Ration', label: 'Food Ration', icon: '🍚', desc: 'Rice, canned goods, water' },
@@ -19,7 +15,7 @@ const AID_TYPES = [
 
 type WorkerMode = 'register' | 'distribute'
 
-export default function LockInSessionClient() {
+export default function LockInSessionClient({ disasters = [] }: { disasters?: any[] }) {
   const router = useRouter()
   const [mode, setMode] = useState<WorkerMode>('distribute')
   const [selectedDisaster, setSelectedDisaster] = useState('')
@@ -38,10 +34,10 @@ export default function LockInSessionClient() {
     if (!canLockIn) return
     setIsLocking(true)
     await new Promise(resolve => setTimeout(resolve, 1800))
-    router.push('/worker/dashboard/scan')
+    router.push(`/worker/dashboard/scan?disaster=${selectedDisaster}&aid=${encodeURIComponent(selectedAid)}`)
   }
 
-  const selectedDisasterData = MOCK_DISASTERS.find(d => d.id === selectedDisaster)
+  const selectedDisasterData = disasters.find(d => d.id === selectedDisaster)
 
   return (
     <div className="min-h-screen relative overflow-hidden flex flex-col">
@@ -193,7 +189,7 @@ export default function LockInSessionClient() {
               </div>
             </div>
             <div className="space-y-2">
-              {MOCK_DISASTERS.map(d => (
+              {disasters.map(d => (
                 <button
                   key={d.id}
                   type="button"
