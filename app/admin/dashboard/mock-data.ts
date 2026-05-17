@@ -1,8 +1,5 @@
 /**
- * =============================================================================
  * MOCK DATA — Centralized data source for the admin dashboard
- * =============================================================================
- *
  * WHY A SEPARATE FILE?
  * --------------------
  * Keeping mock data in its own file is a clean architecture pattern:
@@ -18,9 +15,7 @@
  * - Mock data uses realistic Philippine disaster relief context
  */
 
-// =============================================================================
 // TYPE DEFINITIONS
-// =============================================================================
 
 /**
  * Represents a disaster event in the system.
@@ -54,9 +49,7 @@ export interface Beneficiary {
   philsys_hash: string // Hashed national ID — no PII stored
 }
 
-// =============================================================================
 // CONSTANTS — Used for dropdown options in filter controls
-// =============================================================================
 
 /**
  * `as const` makes TypeScript treat these as literal types, not just `string[]`.
@@ -161,9 +154,8 @@ export const MOCK_CLAIM_STUBS: ClaimStub[] = [
   },
 ]
 
-// =============================================================================
+
 // MOCK DATA — Disaster Events
-// =============================================================================
 
 export const MOCK_DISASTERS: DisasterEvent[] = [
   {
@@ -200,9 +192,8 @@ export const MOCK_DISASTERS: DisasterEvent[] = [
   },
 ]
 
-// =============================================================================
+
 // MOCK DATA — Beneficiaries
-// =============================================================================
 
 /**
  * 15 mock beneficiaries with varied attributes for filtering demos.

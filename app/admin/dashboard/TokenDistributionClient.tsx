@@ -22,23 +22,23 @@ import {
 const MOCK_ADMIN_AGENCY = 'DSWD'
 
 export default function TokenDistributionClient() {
-  // === Filter State ===
+  // Filter State
   const [regionFilter, setRegionFilter] = useState<string>('all')
   const [disasterAffectedFilter, setDisasterAffectedFilter] = useState<string>('all')
 
-  // === Selection State ===
+  // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  // === Campaign Config ===
+  // Campaign Config
   const [disasterEventId, setDisasterEventId] = useState<string>('')
   const [aidType, setAidType] = useState<string>(AID_TYPES[0])
 
-  // === Action State ===
+  // Action State
   const [isRecording, setIsRecording] = useState(false)
   const [result, setResult] = useState<{ status: string; message: string } | null>(null)
   const [stubs, setStubs] = useState<ClaimStub[]>(MOCK_CLAIM_STUBS)
 
-  // === Filtered Data ===
+  // Filtered Data
   const filteredBeneficiaries = useMemo(() => {
     return MOCK_BENEFICIARIES.filter((b) => {
       if (regionFilter !== 'all' && b.region !== regionFilter) return false
@@ -48,7 +48,7 @@ export default function TokenDistributionClient() {
     })
   }, [regionFilter, disasterAffectedFilter])
 
-  // === Handlers ===
+  // Handlers
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -110,7 +110,7 @@ export default function TokenDistributionClient() {
 
   return (
     <div className="space-y-6">
-      {/* ===== SECTION 1: ELIGIBILITY FILTERS ===== */}
+      {/* SECTION 1: ELIGIBILITY FILTERS */}
       <div className="rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] p-5">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center">
@@ -145,7 +145,7 @@ export default function TokenDistributionClient() {
         </div>
       </div>
 
-      {/* ===== SECTION 2: BENEFICIARY TABLE ===== */}
+      {/* SECTION 2: BENEFICIARY TABLE */}
       <div className="rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -170,13 +170,11 @@ export default function TokenDistributionClient() {
                   const isSelected = selectedIds.has(b.id)
                   return (
                     <tr key={b.id} onClick={() => toggleSelect(b.id)}
-                      className={`border-b border-white/[0.04] cursor-pointer transition-all duration-150 ${
-                        isSelected ? 'bg-violet-500/10 hover:bg-violet-500/15' : 'hover:bg-white/[0.03]'
-                      }`}>
-                      <td className="p-3">
-                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
-                          isSelected ? 'border-violet-400 bg-violet-500' : 'border-slate-600'
+                      className={`border-b border-white/[0.04] cursor-pointer transition-all duration-150 ${isSelected ? 'bg-violet-500/10 hover:bg-violet-500/15' : 'hover:bg-white/[0.03]'
                         }`}>
+                      <td className="p-3">
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${isSelected ? 'border-violet-400 bg-violet-500' : 'border-slate-600'
+                          }`}>
                           {isSelected && (
                             <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -206,10 +204,9 @@ export default function TokenDistributionClient() {
         </div>
       </div>
 
-      {/* ===== SECTION 3: CAMPAIGN CONFIG + CLAIM STUB ACTION ===== */}
-      <div className={`rounded-2xl border overflow-hidden transition-all duration-300 ${
-        selectedIds.size > 0 ? 'bg-violet-500/[0.06] border-violet-500/20 backdrop-blur-xl' : 'bg-white/[0.02] border-white/[0.06]'
-      }`}>
+      {/* SECTION 3: CAMPAIGN CONFIG + CLAIM STUB ACTION */}
+      <div className={`rounded-2xl border overflow-hidden transition-all duration-300 ${selectedIds.size > 0 ? 'bg-violet-500/[0.06] border-violet-500/20 backdrop-blur-xl' : 'bg-white/[0.02] border-white/[0.06]'
+        }`}>
         <div className="p-5 border-b border-white/[0.06]">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center">
@@ -264,13 +261,12 @@ export default function TokenDistributionClient() {
           <button
             onClick={handleCreateStubs}
             disabled={selectedIds.size === 0 || !disasterEventId || isRecording}
-            className={`w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-bold tracking-wide uppercase transition-all duration-300 flex items-center justify-center gap-2 ${
-              selectedIds.size > 0 && disasterEventId && !isRecording
+            className={`w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-bold tracking-wide uppercase transition-all duration-300 flex items-center justify-center gap-2 ${selectedIds.size > 0 && disasterEventId && !isRecording
                 ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:scale-[1.02] active:scale-[0.98]'
                 : isRecording
-                ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white/80 cursor-wait'
-                : 'bg-white/[0.04] text-slate-600 cursor-not-allowed'
-            }`}
+                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white/80 cursor-wait'
+                  : 'bg-white/[0.04] text-slate-600 cursor-not-allowed'
+              }`}
           >
             {isRecording ? (
               <>
@@ -298,11 +294,10 @@ export default function TokenDistributionClient() {
         {/* Result Message */}
         {result && (
           <div className="px-5 py-4">
-            <div className={`px-4 py-3 rounded-xl text-xs font-medium flex items-start gap-2 ${
-              result.status === 'success'
+            <div className={`px-4 py-3 rounded-xl text-xs font-medium flex items-start gap-2 ${result.status === 'success'
                 ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
                 : 'bg-red-500/10 border border-red-500/20 text-red-400'
-            }`}>
+              }`}>
               <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={result.status === 'success' ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
               </svg>
@@ -312,7 +307,7 @@ export default function TokenDistributionClient() {
         )}
       </div>
 
-      {/* ===== SECTION 4: CLAIM STUB HISTORY ===== */}
+      {/* SECTION 4: CLAIM STUB HISTORY */}
       <div className="rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] overflow-hidden">
         <div className="p-5 border-b border-white/[0.06] flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
@@ -348,11 +343,10 @@ export default function TokenDistributionClient() {
                 stubs.map((s) => (
                   <tr key={s.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
                     <td className="p-3">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        s.claimed
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.claimed
                           ? 'bg-emerald-500/15 text-emerald-400'
                           : 'bg-amber-500/15 text-amber-400'
-                      }`}>{s.claimed ? 'CLAIMED' : 'UNCLAIMED'}</span>
+                        }`}>{s.claimed ? 'CLAIMED' : 'UNCLAIMED'}</span>
                     </td>
                     <td className="p-3">
                       <p className="text-sm text-white font-medium">{getBeneficiaryName(s.beneficiary_id)}</p>
@@ -372,10 +366,7 @@ export default function TokenDistributionClient() {
   )
 }
 
-// =============================================================================
-// SUB-COMPONENTS
-// =============================================================================
-
+// Sub-components
 function FilterDropdown({ label, value, onChange, options }: {
   label: string; value: string; onChange: (val: string) => void
   options: { value: string; label: string }[]
