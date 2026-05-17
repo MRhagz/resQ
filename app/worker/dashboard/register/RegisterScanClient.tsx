@@ -22,6 +22,7 @@ export default function RegisterScanClient() {
   const [scanState, setScanState] = useState<ScanState>('idle')
   const [beneficiary, setBeneficiary] = useState<PhilSysData | null>(null)
   const [selectedRegion, setSelectedRegion] = useState('')
+  const [barangay, setBarangay] = useState('')
   const [isRegistering, setIsRegistering] = useState(false)
   const [result, setResult] = useState<{ status: string; message: string; walletId?: string } | null>(null)
 
@@ -51,6 +52,7 @@ export default function RegisterScanClient() {
       const res = await registerBeneficiaryOnsite({
         nationalId: beneficiary.philsysNumber,
         region: selectedRegion,
+        barangay: barangay,
         fullName: `${beneficiary.firstName.charAt(0)}. ${beneficiary.lastName}`,
       })
       setResult({
@@ -66,12 +68,14 @@ export default function RegisterScanClient() {
     setBeneficiary(null)
     setScanState('idle')
     setSelectedRegion('')
+    setBarangay('')
   }
 
   const handleCancel = () => {
     setBeneficiary(null)
     setScanState('idle')
     setSelectedRegion('')
+    setBarangay('')
   }
 
   const formatDate = (dateStr: string) =>
@@ -214,19 +218,30 @@ export default function RegisterScanClient() {
                   <InfoRow label="Place of Birth" value={beneficiary.placeOfBirth} />
                 </div>
 
-                {/* Region selector */}
-                <div className="mb-4">
-                  <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                    Assign Region
-                  </label>
-                  <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}
-                    className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] text-xs text-white px-3 py-2.5 outline-none focus:border-teal-500/40 transition-colors appearance-none cursor-pointer"
-                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.25em 1.25em', paddingRight: '2rem' }}>
-                    <option value="" className="bg-slate-900">— Select Region —</option>
-                    {REGIONS.map((r) => (
-                      <option key={r} value={r} className="bg-slate-900 text-white">{r}</option>
-                    ))}
-                  </select>
+                {/* Region & Barangay selector */}
+                <div className="mb-4 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Assign Region
+                    </label>
+                    <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}
+                      className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] text-xs text-white px-3 py-2.5 outline-none focus:border-teal-500/40 transition-colors appearance-none cursor-pointer"
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.25em 1.25em', paddingRight: '2rem' }}>
+                      <option value="" className="bg-slate-900">— Select Region —</option>
+                      {REGIONS.map((r) => (
+                        <option key={r} value={r} className="bg-slate-900 text-white">{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Barangay
+                    </label>
+                    <input type="text" value={barangay} onChange={(e) => setBarangay(e.target.value)}
+                      placeholder="e.g. San Antonio"
+                      className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] text-xs text-white px-3 py-2.5 outline-none focus:border-teal-500/40 transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
 

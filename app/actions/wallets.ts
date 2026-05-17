@@ -21,6 +21,7 @@ import { revalidatePath } from 'next/cache'
 interface RegistrationPayload {
   nationalId: string
   region: string
+  barangay?: string
   fullName: string // stored only as first initial + last for display, NOT raw PII
 }
 
@@ -62,6 +63,7 @@ export async function registerBeneficiaryOnsite(payload: RegistrationPayload) {
   // 4. Build demographics payload
   const demographics: Record<string, string> = {}
   if (payload.region) demographics.region = payload.region
+  if (payload.barangay) demographics.barangay = payload.barangay
   // Store only first initial + last name for display (not full PII)
   if (payload.fullName) demographics.display_name = payload.fullName
 
