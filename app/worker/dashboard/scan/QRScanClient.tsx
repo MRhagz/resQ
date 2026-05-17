@@ -62,13 +62,11 @@ export default function QRScanClient() {
     setIsSubmitting(false)
     setBeneficiary(null)
     setScanState('idle')
-    setScanProgress(0)
   }
 
   const handleReject = () => {
     setBeneficiary(null)
     setScanState('idle')
-    setScanProgress(0)
   }
 
   const handleBack = () => {
@@ -232,11 +230,10 @@ export default function QRScanClient() {
                 <button
                   onClick={handleConfirm}
                   disabled={isSubmitting}
-                  className={`flex-[2] py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-                    isSubmitting
+                  className={`flex-[2] py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${isSubmitting
                       ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white/80 cursor-wait'
                       : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-[0.98]'
-                  }`}
+                    }`}
                 >
                   {isSubmitting ? (
                     <>
@@ -262,11 +259,10 @@ export default function QRScanClient() {
 
         {/* Result feedback */}
         {result && (
-          <div className={`mx-4 mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 ${
-            result.status === 'success'
+          <div className={`mx-4 mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 ${result.status === 'success'
               ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
               : 'bg-red-500/10 border border-red-500/20 text-red-400'
-          }`}>
+            }`}>
             <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d={result.status === 'success' ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />

@@ -65,14 +65,12 @@ export default function RegisterScanClient() {
     setIsRegistering(false)
     setBeneficiary(null)
     setScanState('idle')
-    setScanProgress(0)
     setSelectedRegion('')
   }
 
   const handleCancel = () => {
     setBeneficiary(null)
     setScanState('idle')
-    setScanProgress(0)
     setSelectedRegion('')
   }
 
