@@ -32,59 +32,27 @@ export interface PhilSysData {
 export function parsePhilSysQR(rawData: string): PhilSysData | null {
   const trimmed = rawData.trim()
 
-  // Try JSON format first
   try {
     const json = JSON.parse(trimmed)
-    if (json.psn || json.philsysNumber) {
+
+    // Support official PhilSys JSON structure
+    if (json.subject && json.subject.PCN) {
+      const subj = json.subject
       return {
-        philsysNumber: json.psn || json.philsysNumber || '',
-        lastName: json.lastName || json.ln || '',
-        firstName: json.firstName || json.fn || '',
-        middleName: json.middleName || json.mn || '',
-        suffix: json.suffix || json.sfx || '',
-        sex: normalizeSex(json.sex || json.s || ''),
-        dateOfBirth: json.dateOfBirth || json.dob || '',
-        placeOfBirth: json.placeOfBirth || json.pob || '',
-        address: json.address || json.addr || '',
-        fullName: buildFullName(json.firstName || json.fn || '', json.middleName || json.mn || '', json.lastName || json.ln || '', json.suffix || json.sfx || ''),
+        philsysNumber: subj.PCN,
+        lastName: subj.lName || '',
+        firstName: subj.fName || '',
+        middleName: subj.mName || '',
+        suffix: subj.Suffix || '',
+        sex: normalizeSex(subj.sex || ''),
+        dateOfBirth: subj.DOB || '',
+        placeOfBirth: subj.POB || '',
+        address: '', // Address not included in standard QR payload
+        fullName: buildFullName(subj.fName || '', subj.mName || '', subj.lName || '', subj.Suffix || ''),
       }
     }
   } catch {
-    // Not JSON, try pipe format
-  }
-
-  // Pipe-delimited: PSN|LAST|FIRST|MIDDLE|SUFFIX|SEX|DOB|POB|ADDRESS
-  const parts = trimmed.split('|')
-  if (parts.length >= 6 && parts[0].startsWith('PSN')) {
-    const [psn, last, first, middle = '', suffix = '', sex = '', dob = '', pob = '', address = ''] = parts
-    return {
-      philsysNumber: psn,
-      lastName: last,
-      firstName: first,
-      middleName: middle,
-      suffix,
-      sex: normalizeSex(sex),
-      dateOfBirth: dob,
-      placeOfBirth: pob,
-      address,
-      fullName: buildFullName(first, middle, last, suffix),
-    }
-  }
-
-  // If it starts with PSN but no pipes, treat entire string as the ID
-  if (trimmed.startsWith('PSN')) {
-    return {
-      philsysNumber: trimmed,
-      lastName: '',
-      firstName: '',
-      middleName: '',
-      suffix: '',
-      sex: '',
-      dateOfBirth: '',
-      placeOfBirth: '',
-      address: '',
-      fullName: 'Unknown (ID only scan)',
-    }
+    // Ignore JSON parse errors and return null
   }
 
   return null
