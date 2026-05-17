@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { revalidatePath } from 'next/cache'
 
 /**
  * Fetch all disaster events from the database.
@@ -52,4 +53,38 @@ export async function fetchBeneficiaries() {
       created_at: row.created_at,
     }
   })
+}
+
+/**
+ * Create a new disaster event in the database.
+ * Forced recompile.
+ */
+
+export async function createDisaster(formData: FormData) {
+  const name = formData.get('name') as string
+  const region = formData.get('region') as string
+
+  if (!name || !region) {
+    return { status: 'error', message: 'Name and Region are required.' }
+  }
+
+  const prefix = name.substring(0, 2).toUpperCase()
+  const code = `${prefix}-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`
+
+  const supabase = await createClient()
+
+  const { error } = await supabase.from('disaster_events').insert({
+    system_code: code,
+    name: name,
+    status: 'ACTIVE',
+    allowed_regions: [region],
+  })
+
+  if (error) {
+    console.error('Create disaster error:', error)
+    return { status: 'error', message: 'Failed to create disaster event.' }
+  }
+
+  revalidatePath('/admin/dashboard')
+  return { status: 'success', message: `Deployed "${name}" as ${code}` }
 }
