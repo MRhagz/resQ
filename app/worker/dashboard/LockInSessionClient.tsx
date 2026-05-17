@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Navbar from '@/components/Navbar'
 
 const MOCK_DISASTERS = [
   { id: '1', system_code: 'TY-2026-001', name: 'Typhoon Aghon' },
@@ -35,7 +36,7 @@ export default function LockInSessionClient() {
   const selectedDisasterData = MOCK_DISASTERS.find(d => d.id === selectedDisaster)
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
+    <div className="min-h-screen relative overflow-hidden flex flex-col">
       {/* Animated gradient background */}
       <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950" />
       <div
@@ -50,7 +51,13 @@ export default function LockInSessionClient() {
       <div className="fixed top-1/4 left-1/4 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
       <div className="fixed bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/8 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
 
-      <div className="relative z-10 w-full max-w-lg">
+      {/* Shared Navbar */}
+      <div className="relative z-10">
+        <Navbar role="relief_worker" />
+      </div>
+
+      <div className="relative z-10 flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-lg">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 backdrop-blur-sm">
@@ -228,6 +235,7 @@ export default function LockInSessionClient() {
         <p className="text-center text-[11px] text-slate-600 mt-6">
           ResQ • Cryptographic Aid Distribution System
         </p>
+        </div>
       </div>
 
       {/* Shimmer animation keyframe */}

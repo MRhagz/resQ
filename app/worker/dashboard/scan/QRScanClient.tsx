@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Navbar from '@/components/Navbar'
 
 type ScanState = 'idle' | 'scanning' | 'processing' | 'found'
 
@@ -117,8 +118,11 @@ export default function QRScanClient() {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Header */}
-        <header className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] backdrop-blur-xl bg-black/20">
+        {/* Shared Navbar */}
+        <Navbar role="relief_worker" />
+
+        {/* Scan Context Header */}
+        <header className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] backdrop-blur-xl bg-black/10">
           <button
             onClick={handleBack}
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
