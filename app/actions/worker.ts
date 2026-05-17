@@ -12,6 +12,7 @@ import crypto from 'crypto'
  *   3. System finds an unclaimed stub matching beneficiary + disaster + aid
  *   4. If found → marks claimed=true, records worker + timestamp
  *   5. If not found → rejects (not eligible or already claimed)
+ *   6. On-chain: Token burning is deferred to EOD batch reconciliation
  */
 export async function distributeAid(prevState: any, formData: FormData) {
   const beneficiaryHash = formData.get('beneficiary_hash') as string
@@ -71,7 +72,7 @@ async function redeemStub(
   // 1. Check if a stub already exists
   const { data: stub, error: findError } = await supabase
     .from('claim_stubs')
-    .select('id, claimed')
+    .select('id, claimed, mint_tx_hash')
     .eq('beneficiary_uuid', beneficiaryUuid)
     .eq('disaster_event_id', disasterId)
     .eq('aid_type', aidType)
@@ -82,7 +83,7 @@ async function redeemStub(
       return { status: 'error', message: 'Already claimed! This aid has already been distributed.' }
     }
 
-    // 2. Redeem existing stub
+    // 2. Redeem existing stub — DB is the source of truth
     const { error: updateError } = await supabase
       .from('claim_stubs')
       .update({
@@ -97,6 +98,15 @@ async function redeemStub(
       console.error('Redeem error:', updateError)
       return { status: 'error', message: 'Failed to redeem stub.' }
     }
+
+    // 3. On-chain verification (non-blocking)
+    // The claim token was minted to the system wallet when the stub was created.
+    // Burning happens in the EOD batch reconciliation pipeline.
+    // Here we just log the on-chain status for auditability.
+    if (stub.mint_tx_hash) {
+      logOnChainClaim(stub.id, stub.mint_tx_hash, disasterId, aidType, workerId)
+        .catch(err => console.error('On-chain claim logging failed (non-blocking):', err))
+    }
   } else {
     return {
       status: 'error',
@@ -105,4 +115,22 @@ async function redeemStub(
   }
 
   return { status: 'success', message: 'Aid successfully distributed! Claim stub redeemed.' }
+}
+
+/**
+ * Non-blocking background task: logs the on-chain claim event.
+ * The actual token burn is deferred to the EOD batch pipeline.
+ */
+async function logOnChainClaim(
+  stubId: string,
+  mintTxHash: string,
+  disasterId: string,
+  aidType: string,
+  workerId: string
+) {
+  console.log(
+    `[Blockchain] Claim redeemed — Stub: ${stubId}, Mint TX: ${mintTxHash}, ` +
+    `Disaster: ${disasterId}, Aid: ${aidType}, Worker: ${workerId}. ` +
+    `Token burn will occur in EOD batch reconciliation.`
+  )
 }
