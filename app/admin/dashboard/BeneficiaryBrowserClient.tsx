@@ -1,52 +1,32 @@
 "use client"
 
 /**
- * =============================================================================
  * BENEFICIARY BROWSER — Filter & browse beneficiaries
- * =============================================================================
- *
- * KEY PATTERNS TO LEARN:
- * 1. `useState` for filter state (controlled inputs)
- * 2. `useMemo` for derived/filtered data (performance optimization)
- * 3. Set-based selection tracking (O(1) add/remove/check)
- * 4. Conditional rendering based on state
  */
 
 import { useState, useMemo } from 'react'
-import { MOCK_BENEFICIARIES, REGIONS } from './mock-data'
+import { REGIONS, type Beneficiary } from './mock-data'
 
-export default function BeneficiaryBrowserClient() {
-  // ---------------------------------------------------------------------------
-  // FILTER STATE
-  // Each filter is a controlled input — React owns the value, not the DOM.
-  // When the user changes a dropdown, we call the setter, React re-renders,
-  // and `useMemo` below recomputes the filtered list.
-  // ---------------------------------------------------------------------------
+interface Props {
+  beneficiaries: Beneficiary[]
+}
+
+export default function BeneficiaryBrowserClient({ beneficiaries }: Props) {
   const [regionFilter, setRegionFilter] = useState<string>('all')
   const [disasterFilter, setDisasterFilter] = useState<string>('all')
 
-  // ---------------------------------------------------------------------------
-  // SELECTION STATE
-  // We use a Set for O(1) lookups. `selectedIds` tracks which beneficiary IDs
-  // the admin has checked for batch minting.
-  // ---------------------------------------------------------------------------
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isMinting, setIsMinting] = useState(false)
   const [mintResult, setMintResult] = useState<string | null>(null)
 
-  // ---------------------------------------------------------------------------
-  // DERIVED DATA — useMemo
-  // `useMemo` recalculates ONLY when its dependency array changes.
-  // Without it, filtering would run on EVERY render (even unrelated state changes).
-  // ---------------------------------------------------------------------------
   const filteredBeneficiaries = useMemo(() => {
-    return MOCK_BENEFICIARIES.filter((b) => {
+    return beneficiaries.filter((b) => {
       if (regionFilter !== 'all' && b.region !== regionFilter) return false
       if (disasterFilter === 'yes' && !b.is_disaster_affected) return false
       if (disasterFilter === 'no' && b.is_disaster_affected) return false
       return true
     })
-  }, [regionFilter, disasterFilter])
+  }, [regionFilter, disasterFilter, beneficiaries])
 
   // ---------------------------------------------------------------------------
   // SELECTION HANDLERS
@@ -137,7 +117,7 @@ export default function BeneficiaryBrowserClient() {
         {/* Results Summary Bar */}
         <div className="mt-4 flex items-center justify-between px-1">
           <p className="text-xs text-slate-500">
-            Showing <span className="text-white font-semibold">{filteredBeneficiaries.length}</span> of {MOCK_BENEFICIARIES.length} beneficiaries
+            Showing <span className="text-white font-semibold">{filteredBeneficiaries.length}</span> of {beneficiaries.length} beneficiaries
           </p>
           <div className="flex items-center gap-3">
             <button onClick={selectAll} className="text-[10px] font-medium text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wider">

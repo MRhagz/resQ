@@ -1,0 +1,55 @@
+'use server'
+
+import { createClient } from '@/utils/supabase/server'
+
+/**
+ * Fetch all disaster events from the database.
+ */
+export async function fetchDisasters() {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('disaster_events')
+    .select('id, system_code, name, status, allowed_regions, created_at')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Fetch disasters error:', error)
+    return []
+  }
+
+  return data ?? []
+}
+
+/**
+ * Fetch all beneficiaries from the database.
+ * Maps JSONB demographics to flat fields for the UI.
+ */
+export async function fetchBeneficiaries() {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('beneficiaries')
+    .select('system_uuid, id_hash, registration_source, general_demographics, created_at')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Fetch beneficiaries error:', error)
+    return []
+  }
+
+  // Map DB rows to the shape the UI expects
+  return (data ?? []).map((row) => {
+    const demo = (row.general_demographics as Record<string, unknown>) ?? {}
+    return {
+      id: row.system_uuid,
+      full_name: (demo.display_name as string) ?? 'Unknown',
+      region: (demo.region as string) ?? 'Unknown',
+      barangay: (demo.barangay as string) ?? '',
+      is_disaster_affected: (demo.is_disaster_affected as boolean) ?? false,
+      registration_source: row.registration_source,
+      philsys_hash: row.id_hash,
+      created_at: row.created_at,
+    }
+  })
+}

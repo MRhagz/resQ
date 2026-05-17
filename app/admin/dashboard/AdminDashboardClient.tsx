@@ -22,13 +22,19 @@ import Navbar from '@/components/Navbar'
 import CreateDisasterForm from './CreateDisasterForm'
 import BeneficiaryBrowserClient from './BeneficiaryBrowserClient'
 import TokenDistributionClient from './TokenDistributionClient'
-import { MOCK_DISASTERS, type DisasterEvent } from './mock-data'
+import { type DisasterEvent, type Beneficiary, type ClaimStub } from './mock-data'
 
 type Tab = 'disasters' | 'beneficiaries' | 'tokens'
 
-export default function AdminDashboardClient() {
+interface Props {
+  disasters: DisasterEvent[]
+  beneficiaries: Beneficiary[]
+  claimStubs: ClaimStub[]
+}
+
+export default function AdminDashboardClient({ disasters: initialDisasters, beneficiaries, claimStubs }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('disasters')
-  const [disasters, setDisasters] = useState<DisasterEvent[]>(MOCK_DISASTERS)
+  const [disasters, setDisasters] = useState<DisasterEvent[]>(initialDisasters)
 
   const handleCloseDisaster = (id: string) => {
     setDisasters((prev) =>
@@ -111,8 +117,8 @@ export default function AdminDashboardClient() {
             {activeTab === 'disasters' && (
               <DisastersTab disasters={disasters} onClose={handleCloseDisaster} />
             )}
-            {activeTab === 'beneficiaries' && <BeneficiaryBrowserClient />}
-            {activeTab === 'tokens' && <TokenDistributionClient />}
+            {activeTab === 'beneficiaries' && <BeneficiaryBrowserClient beneficiaries={beneficiaries} />}
+            {activeTab === 'tokens' && <TokenDistributionClient beneficiaries={beneficiaries} disasters={disasters} initialStubs={claimStubs} />}
           </div>
         </main>
 
