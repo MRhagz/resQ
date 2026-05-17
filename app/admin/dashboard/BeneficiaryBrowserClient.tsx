@@ -2,7 +2,7 @@
 
 /**
  * =============================================================================
- * BENEFICIARY BROWSER — Filter & select beneficiaries for token minting
+ * BENEFICIARY BROWSER — Filter & browse beneficiaries
  * =============================================================================
  *
  * KEY PATTERNS TO LEARN:
@@ -13,7 +13,7 @@
  */
 
 import { useState, useMemo } from 'react'
-import { MOCK_BENEFICIARIES, REGIONS, INCOME_CLASSES, type Beneficiary } from './mock-data'
+import { MOCK_BENEFICIARIES, REGIONS } from './mock-data'
 
 export default function BeneficiaryBrowserClient() {
   // ---------------------------------------------------------------------------
@@ -23,9 +23,6 @@ export default function BeneficiaryBrowserClient() {
   // and `useMemo` below recomputes the filtered list.
   // ---------------------------------------------------------------------------
   const [regionFilter, setRegionFilter] = useState<string>('all')
-  const [incomeFilter, setIncomeFilter] = useState<string>('all')
-  const [disabilityFilter, setDisabilityFilter] = useState<string>('all')
-  const [seniorFilter, setSeniorFilter] = useState<string>('all')
   const [disasterFilter, setDisasterFilter] = useState<string>('all')
 
   // ---------------------------------------------------------------------------
@@ -45,16 +42,11 @@ export default function BeneficiaryBrowserClient() {
   const filteredBeneficiaries = useMemo(() => {
     return MOCK_BENEFICIARIES.filter((b) => {
       if (regionFilter !== 'all' && b.region !== regionFilter) return false
-      if (incomeFilter !== 'all' && b.income_class !== incomeFilter) return false
-      if (disabilityFilter === 'yes' && !b.has_disability) return false
-      if (disabilityFilter === 'no' && b.has_disability) return false
-      if (seniorFilter === 'yes' && !b.is_senior) return false
-      if (seniorFilter === 'no' && b.is_senior) return false
       if (disasterFilter === 'yes' && !b.is_disaster_affected) return false
       if (disasterFilter === 'no' && b.is_disaster_affected) return false
       return true
     })
-  }, [regionFilter, incomeFilter, disabilityFilter, seniorFilter, disasterFilter])
+  }, [regionFilter, disasterFilter])
 
   // ---------------------------------------------------------------------------
   // SELECTION HANDLERS
@@ -82,9 +74,6 @@ export default function BeneficiaryBrowserClient() {
 
   const resetFilters = () => {
     setRegionFilter('all')
-    setIncomeFilter('all')
-    setDisabilityFilter('all')
-    setSeniorFilter('all')
     setDisasterFilter('all')
     setSelectedIds(new Set())
   }
@@ -115,7 +104,7 @@ export default function BeneficiaryBrowserClient() {
           </div>
           <div>
             <h2 className="text-sm font-semibold text-white">Eligibility Filters</h2>
-            <p className="text-xs text-slate-500">Narrow down beneficiaries by conditions</p>
+            <p className="text-xs text-slate-500">Narrow down beneficiaries by location and disaster status</p>
           </div>
           <button
             onClick={resetFilters}
@@ -126,38 +115,12 @@ export default function BeneficiaryBrowserClient() {
         </div>
 
         {/* Filter Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FilterDropdown
             label="Region"
             value={regionFilter}
             onChange={setRegionFilter}
             options={[{ value: 'all', label: 'All Regions' }, ...REGIONS.map((r) => ({ value: r, label: r }))]}
-          />
-          <FilterDropdown
-            label="Income Class"
-            value={incomeFilter}
-            onChange={setIncomeFilter}
-            options={[{ value: 'all', label: 'All Classes' }, ...INCOME_CLASSES.map((c) => ({ value: c, label: c }))]}
-          />
-          <FilterDropdown
-            label="Has Disability"
-            value={disabilityFilter}
-            onChange={setDisabilityFilter}
-            options={[
-              { value: 'all', label: 'Any' },
-              { value: 'yes', label: 'Yes' },
-              { value: 'no', label: 'No' },
-            ]}
-          />
-          <FilterDropdown
-            label="Senior Citizen"
-            value={seniorFilter}
-            onChange={setSeniorFilter}
-            options={[
-              { value: 'all', label: 'Any' },
-              { value: 'yes', label: 'Yes' },
-              { value: 'no', label: 'No' },
-            ]}
           />
           <FilterDropdown
             label="Disaster Affected"
@@ -199,15 +162,13 @@ export default function BeneficiaryBrowserClient() {
                 <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Name</th>
                 <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Region</th>
                 <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Barangay</th>
-                <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Income</th>
-                <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Family</th>
-                <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Tags</th>
+                <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody>
               {filteredBeneficiaries.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-sm text-slate-600 italic">
+                  <td colSpan={6} className="p-8 text-center text-sm text-slate-600 italic">
                     No beneficiaries match the current filters.
                   </td>
                 </tr>
@@ -246,31 +207,11 @@ export default function BeneficiaryBrowserClient() {
                       <td className="p-3 text-xs text-slate-300">{b.region}</td>
                       <td className="p-3 text-xs text-slate-400 hidden sm:table-cell">{b.barangay}</td>
                       <td className="p-3">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          b.income_class === 'Poor'
-                            ? 'bg-red-500/15 text-red-400'
-                            : b.income_class === 'Low Income'
-                            ? 'bg-amber-500/15 text-amber-400'
-                            : b.income_class === 'Lower Middle'
-                            ? 'bg-yellow-500/15 text-yellow-400'
-                            : 'bg-green-500/15 text-green-400'
-                        }`}>
-                          {b.income_class}
-                        </span>
-                      </td>
-                      <td className="p-3 text-xs text-slate-300 hidden md:table-cell">{b.family_size}</td>
-                      <td className="p-3">
-                        <div className="flex gap-1 flex-wrap">
-                          {b.has_disability && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400">PWD</span>
-                          )}
-                          {b.is_senior && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400">Senior</span>
-                          )}
-                          {b.is_disaster_affected && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400">Affected</span>
-                          )}
-                        </div>
+                        {b.is_disaster_affected ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400">Affected</span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/15 text-slate-400">Unaffected</span>
+                        )}
                       </td>
                     </tr>
                   )
@@ -353,8 +294,8 @@ export default function BeneficiaryBrowserClient() {
 // =============================================================================
 /**
  * WHY A SEPARATE COMPONENT?
- * We have 5 filters that all look the same. Instead of copy-pasting the same
- * <select> markup 5 times, we extract it into a reusable component.
+ * We have filters that all look the same. Instead of copy-pasting the same
+ * <select> markup, we extract it into a reusable component.
  * This is the DRY principle (Don't Repeat Yourself).
  */
 function FilterDropdown({

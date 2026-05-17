@@ -43,10 +43,6 @@ export interface DisasterEvent {
  *
  * KEY FIELDS FOR FILTERING:
  * - region: geographic filter (where they live)
- * - income_class: economic filter (poverty level)
- * - family_size: household size filter
- * - has_disability: vulnerability filter
- * - is_senior: age-based vulnerability filter
  * - is_disaster_affected: whether they're in the disaster zone
  */
 export interface Beneficiary {
@@ -54,10 +50,6 @@ export interface Beneficiary {
   full_name: string
   region: string
   barangay: string
-  income_class: 'Poor' | 'Low Income' | 'Lower Middle' | 'Middle'
-  family_size: number
-  has_disability: boolean
-  is_senior: boolean
   is_disaster_affected: boolean
   philsys_hash: string // Hashed national ID — no PII stored
 }
@@ -88,12 +80,100 @@ export const REGIONS = [
   'BARMM',
 ] as const
 
-export const INCOME_CLASSES = [
-  'Poor',
-  'Low Income',
-  'Lower Middle',
-  'Middle',
+export const AID_TYPES = [
+  'Food Ration',
+  'Medical Kit',
+  'Shelter Kit',
+  'Hygiene Pack',
+  'Cash Assistance',
 ] as const
+
+/**
+ * Represents a recorded distribution ruling (off-chain audit trail).
+ * Agency is auto-populated from the admin's staff_profile.
+ */
+export interface TokenRuling {
+  id: string
+  admin_id: string
+  disaster_event_id: string
+  aid_type: string
+  agency: string // auto-populated from staff_profiles.agency
+  beneficiary_id: string
+  eligibility_criteria: {
+    region: string
+    is_disaster_affected: string
+  }
+  ruling_status: 'APPROVED' | 'DISTRIBUTED' | 'REJECTED' | 'REVOKED'
+  ruled_at: string
+  distributed_at: string | null
+}
+
+/**
+ * Mock ruling history for demo purposes.
+ * In production, these come from the token_rulings Supabase table.
+ */
+export const MOCK_RULINGS: TokenRuling[] = [
+  {
+    id: 'r001',
+    admin_id: 'admin-1',
+    disaster_event_id: '1',
+    aid_type: 'Food Ration',
+    agency: 'DSWD',
+    beneficiary_id: 'b001',
+    eligibility_criteria: {
+      region: 'NCR',
+      is_disaster_affected: 'yes',
+    },
+    ruling_status: 'DISTRIBUTED',
+    ruled_at: '2026-05-15T09:00:00Z',
+    distributed_at: '2026-05-15T11:30:00Z',
+  },
+  {
+    id: 'r002',
+    admin_id: 'admin-1',
+    disaster_event_id: '1',
+    aid_type: 'Medical Kit',
+    agency: 'DSWD',
+    beneficiary_id: 'b002',
+    eligibility_criteria: {
+      region: 'NCR',
+      is_disaster_affected: 'yes',
+    },
+    ruling_status: 'APPROVED',
+    ruled_at: '2026-05-16T14:20:00Z',
+    distributed_at: null,
+  },
+  {
+    id: 'r003',
+    admin_id: 'admin-1',
+    disaster_event_id: '2',
+    aid_type: 'Shelter Kit',
+    agency: 'Red Cross PH',
+    beneficiary_id: 'b005',
+    eligibility_criteria: {
+      region: 'Region XI',
+      is_disaster_affected: 'yes',
+    },
+    ruling_status: 'APPROVED',
+    ruled_at: '2026-05-17T08:45:00Z',
+    distributed_at: null,
+  },
+  {
+    id: 'r004',
+    admin_id: 'admin-1',
+    disaster_event_id: '4',
+    aid_type: 'Food Ration',
+    agency: 'DSWD',
+    beneficiary_id: 'b009',
+    eligibility_criteria: {
+      region: 'Region V',
+      is_disaster_affected: 'yes',
+    },
+    ruling_status: 'REVOKED',
+    ruled_at: '2026-05-16T10:00:00Z',
+    distributed_at: null,
+  },
+]
 
 // =============================================================================
 // MOCK DATA — Disaster Events
@@ -150,10 +230,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Maria Santos Dela Cruz',
     region: 'NCR',
     barangay: 'Brgy. San Antonio, Makati',
-    income_class: 'Poor',
-    family_size: 6,
-    has_disability: false,
-    is_senior: false,
     is_disaster_affected: true,
     philsys_hash: '0xa3f1...7d2e',
   },
@@ -162,10 +238,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Juan Andres Reyes',
     region: 'NCR',
     barangay: 'Brgy. Bagong Silang, Caloocan',
-    income_class: 'Poor',
-    family_size: 8,
-    has_disability: true,
-    is_senior: false,
     is_disaster_affected: true,
     philsys_hash: '0xb7c2...9f1a',
   },
@@ -174,10 +246,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Rosalinda Manalo Garcia',
     region: 'Region IV-A',
     barangay: 'Brgy. Paliparan, Dasmariñas',
-    income_class: 'Low Income',
-    family_size: 4,
-    has_disability: false,
-    is_senior: true,
     is_disaster_affected: true,
     philsys_hash: '0xd4e8...3b5c',
   },
@@ -186,10 +254,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Roberto Fernandez Jr.',
     region: 'Region IV-A',
     barangay: 'Brgy. San Isidro, Antipolo',
-    income_class: 'Lower Middle',
-    family_size: 3,
-    has_disability: false,
-    is_senior: false,
     is_disaster_affected: true,
     philsys_hash: '0xe9a1...6c8d',
   },
@@ -198,10 +262,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Esperanza Villanueva',
     region: 'Region XI',
     barangay: 'Brgy. Buhangin, Davao City',
-    income_class: 'Poor',
-    family_size: 7,
-    has_disability: true,
-    is_senior: true,
     is_disaster_affected: true,
     philsys_hash: '0xf2b3...8e4f',
   },
@@ -210,10 +270,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Antonio Bautista Ramos',
     region: 'Region XI',
     barangay: 'Brgy. Tibungco, Davao City',
-    income_class: 'Poor',
-    family_size: 5,
-    has_disability: false,
-    is_senior: false,
     is_disaster_affected: true,
     philsys_hash: '0x1c7d...2a9e',
   },
@@ -222,10 +278,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Concepcion Aquino Torres',
     region: 'Region XII',
     barangay: 'Brgy. Poblacion, General Santos',
-    income_class: 'Low Income',
-    family_size: 4,
-    has_disability: false,
-    is_senior: true,
     is_disaster_affected: true,
     philsys_hash: '0x3e5f...4b1c',
   },
@@ -234,10 +286,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Pedro Enriquez Santiago',
     region: 'Region II',
     barangay: 'Brgy. Centro, Tuguegarao',
-    income_class: 'Poor',
-    family_size: 9,
-    has_disability: false,
-    is_senior: false,
     is_disaster_affected: false,
     philsys_hash: '0x5a2b...7d3e',
   },
@@ -246,10 +294,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Lourdes Mendoza Cruz',
     region: 'Region V',
     barangay: 'Brgy. Daraga, Albay',
-    income_class: 'Poor',
-    family_size: 6,
-    has_disability: true,
-    is_senior: false,
     is_disaster_affected: true,
     philsys_hash: '0x8f4c...1e6a',
   },
@@ -258,10 +302,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Carlos Dimaculangan',
     region: 'Region VIII',
     barangay: 'Brgy. Abucay, Tacloban',
-    income_class: 'Poor',
-    family_size: 5,
-    has_disability: false,
-    is_senior: false,
     is_disaster_affected: true,
     philsys_hash: '0xc1d9...5f2b',
   },
@@ -270,10 +310,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Teresita Gonzales Lim',
     region: 'Region VIII',
     barangay: 'Brgy. San Jose, Ormoc',
-    income_class: 'Low Income',
-    family_size: 3,
-    has_disability: false,
-    is_senior: true,
     is_disaster_affected: true,
     philsys_hash: '0xd3e7...8a4c',
   },
@@ -282,10 +318,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Fernando Pascual Reyes',
     region: 'NCR',
     barangay: 'Brgy. Payatas, Quezon City',
-    income_class: 'Poor',
-    family_size: 10,
-    has_disability: false,
-    is_senior: false,
     is_disaster_affected: true,
     philsys_hash: '0xe5f1...9c6d',
   },
@@ -294,10 +326,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Gloria Magtanggol Roque',
     region: 'Region V',
     barangay: 'Brgy. Peñafrancia, Naga',
-    income_class: 'Middle',
-    family_size: 2,
-    has_disability: false,
-    is_senior: false,
     is_disaster_affected: false,
     philsys_hash: '0xf7a3...2d8e',
   },
@@ -306,10 +334,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Ricardo Soriano Pangilinan',
     region: 'Region III',
     barangay: 'Brgy. Sto. Rosario, Angeles',
-    income_class: 'Lower Middle',
-    family_size: 4,
-    has_disability: true,
-    is_senior: false,
     is_disaster_affected: false,
     philsys_hash: '0x2b4d...6e1f',
   },
@@ -318,10 +342,6 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     full_name: 'Amelia Castillo Vega',
     region: 'CAR',
     barangay: 'Brgy. Burnham, Baguio',
-    income_class: 'Low Income',
-    family_size: 5,
-    has_disability: false,
-    is_senior: true,
     is_disaster_affected: false,
     philsys_hash: '0x4c6e...8f2a',
   },
