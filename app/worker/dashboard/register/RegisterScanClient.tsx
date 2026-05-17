@@ -1,14 +1,15 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import Navbar from '@/components/Navbar'
 import { registerBeneficiaryOnsite } from '@/app/actions/wallets'
-import { parsePhilSysQR, scanQRFromVideo, type PhilSysData } from '@/utils/philsys'
+import { parsePhilSysQR, type PhilSysData } from '@/utils/philsys'
+
+const QrScanner = dynamic(() => import('@/components/Scanner'), { ssr: false })
 
 type ScanState = 'idle' | 'scanning' | 'processing' | 'found'
-
-
 
 const REGIONS = [
   'NCR', 'Region I', 'Region II', 'Region III', 'Region IV-A', 'Region V',
@@ -20,86 +21,25 @@ export default function RegisterScanClient() {
   const router = useRouter()
   const [scanState, setScanState] = useState<ScanState>('idle')
   const [beneficiary, setBeneficiary] = useState<PhilSysData | null>(null)
-  const [scanProgress, setScanProgress] = useState(0)
   const [selectedRegion, setSelectedRegion] = useState('')
   const [isRegistering, setIsRegistering] = useState(false)
   const [result, setResult] = useState<{ status: string; message: string; walletId?: string } | null>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [cameraActive, setCameraActive] = useState(false)
-  const [cameraError, setCameraError] = useState('')
-  const [hasBarcodeApi, setHasBarcodeApi] = useState(false)
-  const scanAbortRef = useRef<AbortController | null>(null)
 
   // Process raw QR data
   const processQRData = useCallback((rawData: string) => {
+    if (scanState !== 'idle' && scanState !== 'scanning') return
     setScanState('processing')
     const parsed = parsePhilSysQR(rawData)
     if (parsed) {
       setTimeout(() => {
         setBeneficiary(parsed)
         setScanState('found')
-      }, 800)
+      }, 500)
     } else {
       setResult({ status: 'error', message: 'Invalid QR code — not a recognized PhilSys format.' })
       setScanState('idle')
     }
-  }, [])
-
-  // Camera setup
-  useEffect(() => {
-    let stream: MediaStream | null = null
-    const apiAvailable = 'BarcodeDetector' in window
-    setHasBarcodeApi(apiAvailable)
-
-    async function startCamera() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        })
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          setCameraActive(true)
-        }
-      } catch {
-        setCameraError('Camera access denied or unavailable')
-        setCameraActive(false)
-      }
-    }
-    startCamera()
-    return () => {
-      if (stream) stream.getTracks().forEach(t => t.stop())
-      if (scanAbortRef.current) scanAbortRef.current.abort()
-    }
-  }, [])
-
-  // Real-time QR scanning
-  useEffect(() => {
-    if (!cameraActive || !hasBarcodeApi || scanState !== 'idle' || !videoRef.current) return
-
-    if (scanAbortRef.current) scanAbortRef.current.abort()
-    const controller = new AbortController()
-    scanAbortRef.current = controller
-
-    setScanState('scanning')
-    setScanProgress(0)
-
-    let progress = 0
-    const progressInterval = setInterval(() => {
-      progress = Math.min(progress + 2, 95)
-      setScanProgress(progress)
-    }, 200)
-
-    scanQRFromVideo(videoRef.current, (data) => {
-      clearInterval(progressInterval)
-      setScanProgress(100)
-      processQRData(data)
-    }, controller.signal)
-
-    return () => {
-      clearInterval(progressInterval)
-      controller.abort()
-    }
-  }, [cameraActive, hasBarcodeApi, scanState, processQRData])
+  }, [scanState])
 
 
 
@@ -174,47 +114,28 @@ export default function RegisterScanClient() {
             </div>
 
             {/* Camera Viewfinder */}
-            <div className="relative rounded-2xl overflow-hidden bg-black/40 border border-white/[0.08] shadow-2xl shadow-black/40 aspect-[4/3]">
-              <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
-
-              {cameraError && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 text-slate-400">
-                  <svg className="w-12 h-12 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  <p className="text-xs text-center px-8">{cameraError}</p>
-                  <p className="text-[10px] text-slate-600 mt-1">Use the button below to simulate a scan</p>
-                </div>
+            <div className="relative rounded-2xl overflow-hidden bg-black/40 border border-white/[0.08] shadow-2xl shadow-black/40 aspect-[4/3] flex items-center justify-center">
+              {(scanState === 'idle' || scanState === 'scanning') && (
+                <QrScanner
+                  onScan={(result: any) => {
+                    if (result && result.length > 0) {
+                      processQRData(result[0].rawValue)
+                    }
+                  }}
+                  onError={(error: any) => console.error(error)}
+                  components={{
+                    audio: false,
+                    onOff: false,
+                    torch: false,
+                    zoom: false,
+                    finder: true,
+                  }}
+                />
               )}
 
-              {!cameraActive && !cameraError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/90">
-                  <div className="flex flex-col items-center gap-2">
-                    <svg className="w-6 h-6 text-teal-400 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    <p className="text-xs text-slate-500">Initializing camera...</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Scan frame — teal accent for registration */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-56 h-56 relative">
-                  <div className="absolute top-0 left-0 w-10 h-10 border-t-2 border-l-2 border-teal-400 rounded-tl-lg" />
-                  <div className="absolute top-0 right-0 w-10 h-10 border-t-2 border-r-2 border-teal-400 rounded-tr-lg" />
-                  <div className="absolute bottom-0 left-0 w-10 h-10 border-b-2 border-l-2 border-teal-400 rounded-bl-lg" />
-                  <div className="absolute bottom-0 right-0 w-10 h-10 border-b-2 border-r-2 border-teal-400 rounded-br-lg" />
-                  {scanState === 'scanning' && (
-                    <div className="absolute left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-teal-400 to-transparent shadow-lg shadow-teal-400/50"
-                      style={{ top: `${scanProgress}%`, transition: 'top 40ms linear' }} />
-                  )}
-                </div>
-              </div>
-
+              {/* Scan progress overlay */}
               {scanState === 'processing' && (
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center backdrop-blur-sm">
+                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center backdrop-blur-sm z-10">
                   <svg className="w-8 h-8 text-teal-400 animate-spin mb-3" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -225,35 +146,9 @@ export default function RegisterScanClient() {
               )}
 
               {scanState === 'found' && (
-                <div className="absolute inset-0 bg-teal-500/10 border-2 border-teal-400 rounded-2xl transition-all" />
+                <div className="absolute inset-0 bg-teal-500/10 border-2 border-teal-400 rounded-2xl transition-all z-10" />
               )}
             </div>
-
-            {/* Auto-scan status */}
-            {scanState === 'idle' && cameraActive && (
-              <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-teal-500/10 border border-teal-500/20">
-                <svg className="w-4 h-4 text-teal-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                <p className="text-xs font-medium text-teal-300">Place PhilSys QR in frame — auto-detecting...</p>
-              </div>
-            )}
-
-            {scanState === 'scanning' && (
-              <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-teal-500/10 border border-teal-500/20">
-                <svg className="w-4 h-4 text-teal-400 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                </svg>
-                <div className="flex-1">
-                  <p className="text-xs font-medium text-teal-300">Scanning QR Code...</p>
-                  <div className="w-full h-1 bg-teal-500/20 rounded-full mt-1.5 overflow-hidden">
-                    <div className="h-full bg-teal-400 rounded-full transition-all duration-100 ease-linear"
-                      style={{ width: `${scanProgress}%` }} />
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Result feedback */}
             {result && (
