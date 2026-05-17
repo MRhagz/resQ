@@ -1,49 +1,124 @@
 "use client"
 
-import { useActionState } from 'react'
-import { createDisasterEvent } from '../../actions/admin'
+/**
+ * =============================================================================
+ * CREATE DISASTER FORM — Restyled for dark glassmorphic theme
+ * =============================================================================
+ *
+ * KEY PATTERN: useActionState (React 19)
+ * ----------------------------------------
+ * `useActionState` is a React 19 hook for form submissions.
+ * It gives you: [state, formAction, isPending]
+ *   - state: the return value of your action (starts as initialState)
+ *   - formAction: a function to pass to <form action={...}>
+ *   - isPending: true while the action is running
+ *
+ * Since we're NOT connecting to the database, we use a local mock action.
+ */
+
+import { useState } from 'react'
+import { REGIONS } from './mock-data'
 
 export default function CreateDisasterForm() {
-  const [state, formAction, isPending] = useActionState(createDisasterEvent, null)
+  const [isPending, setIsPending] = useState(false)
+  const [result, setResult] = useState<{ status: string; message: string } | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setIsPending(true)
+    setResult(null)
+
+    const formData = new FormData(e.currentTarget)
+    const name = formData.get('name') as string
+
+    // Simulate server delay
+    await new Promise((r) => setTimeout(r, 1200))
+
+    const prefix = name.substring(0, 2).toUpperCase()
+    const code = `${prefix}-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`
+
+    setIsPending(false)
+    setResult({ status: 'success', message: `Deployed "${name}" as ${code} (mock — no DB write)` })
+    e.currentTarget.reset()
+  }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 max-w-md w-full">
-      <h2 className="text-xl font-bold mb-4 border-b pb-2">Create New Disaster Event</h2>
-      
-      <form action={formAction} className="flex flex-col gap-4">
+    <div className="rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] overflow-hidden">
+      <div className="p-5 border-b border-white/[0.06] flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-red-500/15 flex items-center justify-center">
+          <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Official Name</label>
-          <input 
-            type="text" 
-            name="name" 
+          <h2 className="text-sm font-semibold text-white">Deploy Disaster Campaign</h2>
+          <p className="text-xs text-slate-500">Create a new relief operation</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
+        <div>
+          <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
+            Official Name
+          </label>
+          <input
+            type="text"
+            name="name"
             placeholder="e.g. Typhoon Odette"
-            required 
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+            required
+            className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] text-sm text-white placeholder-slate-600 px-3 py-2.5 outline-none focus:border-blue-500/40 transition-colors"
           />
         </div>
 
-
-
         <div>
-          <label className="block text-sm font-medium text-gray-700">Eligible Region (Geofence)</label>
-          <select name="region" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2">
-            <option value="NCR">National Capital Region (NCR)</option>
-            <option value="Region VII">Region VII (Central Visayas)</option>
-            <option value="Region VIII">Region VIII (Eastern Visayas)</option>
+          <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
+            Eligible Region (Geofence)
+          </label>
+          <select
+            name="region"
+            className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] text-sm text-white px-3 py-2.5 outline-none focus:border-blue-500/40 transition-colors appearance-none cursor-pointer"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.25em 1.25em', paddingRight: '2rem' }}
+          >
+            {REGIONS.map((r) => (
+              <option key={r} value={r} className="bg-slate-900 text-white">{r}</option>
+            ))}
           </select>
         </div>
 
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           disabled={isPending}
-          className="w-full bg-red-600 text-white rounded-md py-2 px-4 hover:bg-red-700 disabled:opacity-50 mt-2 font-bold"
+          className={`w-full relative overflow-hidden rounded-xl py-3 text-sm font-bold tracking-wide uppercase transition-all duration-300 mt-2 ${
+            !isPending
+              ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:scale-[1.02] active:scale-[0.98]'
+              : 'bg-gradient-to-r from-red-600 to-rose-600 text-white/80 cursor-wait'
+          }`}
         >
-          {isPending ? 'Deploying Campaign...' : 'Deploy Disaster Campaign'}
+          <span className="relative flex items-center justify-center gap-2">
+            {isPending ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Deploying...
+              </>
+            ) : (
+              'Deploy Campaign'
+            )}
+          </span>
         </button>
 
-        {state?.message && (
-          <div className={`p-3 rounded text-sm font-medium ${state.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-            {state.message}
+        {result && (
+          <div className={`px-4 py-3 rounded-xl text-xs font-medium flex items-start gap-2 ${
+            result.status === 'success'
+              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+              : 'bg-red-500/10 border border-red-500/20 text-red-400'
+          }`}>
+            <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {result.message}
           </div>
         )}
       </form>
