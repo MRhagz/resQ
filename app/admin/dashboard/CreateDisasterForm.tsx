@@ -17,29 +17,37 @@
  */
 
 import { useState } from 'react'
-import { REGIONS } from './mock-data'
+import { createDisaster } from '@/app/actions/data'
 
 export default function CreateDisasterForm() {
   const [isPending, setIsPending] = useState(false)
   const [result, setResult] = useState<{ status: string; message: string } | null>(null)
+  const REGIONS = [
+    'NCR', 'Region I', 'Region II', 'Region III', 'Region IV-A', 'Region V',
+    'Region VI', 'Region VII', 'Region VIII', 'Region IX', 'Region X',
+    'Region XI', 'Region XII', 'CAR', 'BARMM',
+  ]
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsPending(true)
     setResult(null)
 
-    const formData = new FormData(e.currentTarget)
-    const name = formData.get('name') as string
+    const form = e.currentTarget
+    const formData = new FormData(form)
 
-    // Simulate server delay
-    await new Promise((r) => setTimeout(r, 1200))
-
-    const prefix = name.substring(0, 2).toUpperCase()
-    const code = `${prefix}-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`
-
-    setIsPending(false)
-    setResult({ status: 'success', message: `Deployed "${name}" as ${code} (mock — no DB write)` })
-    e.currentTarget.reset()
+    try {
+      const res = await createDisaster(formData)
+      setResult({ status: res.status, message: res.message })
+      if (res.status === 'success') {
+        form.reset()
+      }
+    } catch (err: any) {
+      console.error(err)
+      setResult({ status: 'error', message: err?.message || 'Failed to communicate with server.' })
+    } finally {
+      setIsPending(false)
+    }
   }
 
   return (
@@ -88,11 +96,10 @@ export default function CreateDisasterForm() {
         <button
           type="submit"
           disabled={isPending}
-          className={`w-full relative overflow-hidden rounded-xl py-3 text-sm font-bold tracking-wide uppercase transition-all duration-300 mt-2 ${
-            !isPending
+          className={`w-full relative overflow-hidden rounded-xl py-3 text-sm font-bold tracking-wide uppercase transition-all duration-300 mt-2 ${!isPending
               ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:scale-[1.02] active:scale-[0.98]'
               : 'bg-gradient-to-r from-red-600 to-rose-600 text-white/80 cursor-wait'
-          }`}
+            }`}
         >
           <span className="relative flex items-center justify-center gap-2">
             {isPending ? (
@@ -110,11 +117,10 @@ export default function CreateDisasterForm() {
         </button>
 
         {result && (
-          <div className={`px-4 py-3 rounded-xl text-xs font-medium flex items-start gap-2 ${
-            result.status === 'success'
+          <div className={`px-4 py-3 rounded-xl text-xs font-medium flex items-start gap-2 ${result.status === 'success'
               ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
               : 'bg-red-500/10 border border-red-500/20 text-red-400'
-          }`}>
+            }`}>
             <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>

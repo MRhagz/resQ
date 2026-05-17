@@ -34,7 +34,8 @@ export async function login(prevState: any, formData: FormData) {
 export async function signup(prevState: any, formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
-  const role = formData.get('role') as string // 'super_admin' or 'relief_worker'
+  const role = formData.get('role') as string
+  const agency = formData.get('agency') as string | null
   
   const supabase = await createClient()
 
@@ -48,12 +49,17 @@ export async function signup(prevState: any, formData: FormData) {
   }
 
   if (data.user) {
-    // Attempt to insert into staff_profiles. 
-    // Note: If RLS is enabled and blocking this, it will fail unless policies allow it.
-    const { error: profileError } = await supabase.from('staff_profiles').insert({
+    const profileData: Record<string, unknown> = {
       id: data.user.id,
-      role: role
-    })
+      role: role,
+    }
+
+    // Only super_admins have an agency
+    if (role === 'super_admin' && agency) {
+      profileData.agency = agency
+    }
+
+    const { error: profileError } = await supabase.from('staff_profiles').insert(profileData)
 
     if (profileError) {
       console.error('Profile Creation Error:', profileError)

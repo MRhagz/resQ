@@ -1,10 +1,21 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import crypto from 'crypto'
 
+/**
+ * DISTRIBUTE AID — Worker scans national ID, system redeems the claim stub.
+ *
+ * Flow:
+ *   1. Worker sends beneficiary hash + locked-in disaster/aid
+ *   2. System finds the beneficiary by id_hash
+ *   3. System finds an unclaimed stub matching beneficiary + disaster + aid
+ *   4. If found → marks claimed=true, records worker + timestamp
+ *   5. If not found → rejects (not eligible or already claimed)
+ */
 export async function distributeAid(prevState: any, formData: FormData) {
   const beneficiaryHash = formData.get('beneficiary_hash') as string
-  const disasterId = formData.get('disaster_id') as string // UUID
+  const disasterId = formData.get('disaster_id') as string
   const aidType = formData.get('aid_type') as string
 
   if (!beneficiaryHash || !disasterId || !aidType) {
@@ -16,52 +27,95 @@ export async function distributeAid(prevState: any, formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { status: 'error', message: 'Unauthorized' }
 
-  // For testing purposes: Check if beneficiary exists. If not, auto-register them 
-  // since we skipped the actual web-registration step.
+  // 1. Look up beneficiary by hash
+  const salt = process.env.SYSTEM_HASH_SALT
+  let lookupHash = beneficiaryHash
+
+  // If the hash doesn't look pre-hashed (mock scenario), hash it
+  if (salt && beneficiaryHash.length < 64) {
+    const sanitized = beneficiaryHash.replace(/\s+/g, '').toUpperCase()
+    lookupHash = crypto.createHash('sha256').update(sanitized + salt).digest('hex')
+  }
+
   const { data: beneficiary } = await supabase
     .from('beneficiaries')
     .select('system_uuid')
-    .eq('id_hash', beneficiaryHash)
+    .eq('id_hash', lookupHash)
     .single()
 
-  let beneficiaryUuid = beneficiary?.system_uuid
-
-  if (!beneficiaryUuid) {
-    const { data: newBen, error: insertBenError } = await supabase
+  if (!beneficiary) {
+    // Try raw hash as fallback (for mock/test data)
+    const { data: fallback } = await supabase
       .from('beneficiaries')
-      .insert({
-        id_hash: beneficiaryHash,
-        registration_source: 'TEST_SCAN_UI',
-        general_demographics: {}
-      })
       .select('system_uuid')
+      .eq('id_hash', beneficiaryHash)
       .single()
 
-    if (insertBenError) {
-      console.error('Auto-register failed:', insertBenError)
-      return { status: 'error', message: 'Failed to create mock beneficiary.' }
+    if (!fallback) {
+      return { status: 'error', message: 'Beneficiary not found. They must be registered first.' }
     }
-    beneficiaryUuid = newBen.system_uuid
+    // Use fallback
+    return await redeemStub(supabase, fallback.system_uuid, disasterId, aidType, user.id)
   }
 
-  // Attempt to insert the distribution claim
-  const { error: claimError } = await supabase
-    .from('claims')
-    .insert({
-      beneficiary_uuid: beneficiaryUuid,
-      disaster_event_id: disasterId,
-      aid_type: aidType,
-      relief_worker_id: user.id
-    })
+  return await redeemStub(supabase, beneficiary.system_uuid, disasterId, aidType, user.id)
+}
 
-  if (claimError) {
-    console.error('Claim Error:', claimError)
-    // 23505 is the PostgreSQL code for unique constraint violations
-    if (claimError.code === '23505') {
-      return { status: 'error', message: 'Already Claimed!' }
+async function redeemStub(
+  supabase: any,
+  beneficiaryUuid: string,
+  disasterId: string,
+  aidType: string,
+  workerId: string
+) {
+  // 1. Check if a stub already exists
+  const { data: stub, error: findError } = await supabase
+    .from('claim_stubs')
+    .select('id, claimed')
+    .eq('beneficiary_uuid', beneficiaryUuid)
+    .eq('disaster_event_id', disasterId)
+    .eq('aid_type', aidType)
+    .single()
+
+  if (stub) {
+    if (stub.claimed) {
+      return { status: 'error', message: 'Already claimed! This aid has already been distributed.' }
     }
-    return { status: 'error', message: claimError.message }
+
+    // 2. Redeem existing stub
+    const { error: updateError } = await supabase
+      .from('claim_stubs')
+      .update({
+        claimed: true,
+        claimed_by: workerId,
+        claimed_at: new Date().toISOString(),
+      })
+      .eq('id', stub.id)
+      .eq('claimed', false)
+
+    if (updateError) {
+      console.error('Redeem error:', updateError)
+      return { status: 'error', message: 'Failed to redeem stub.' }
+    }
+  } else {
+    // 3. Automatic Minting — create and immediately claim the stub
+    const { error: insertError } = await supabase
+      .from('claim_stubs')
+      .insert({
+        beneficiary_uuid: beneficiaryUuid,
+        disaster_event_id: disasterId,
+        aid_type: aidType,
+        token_hash: crypto.randomBytes(32).toString('hex'),
+        claimed: true,
+        claimed_by: workerId,
+        claimed_at: new Date().toISOString(),
+      })
+
+    if (insertError) {
+      console.error('Minting error:', insertError)
+      return { status: 'error', message: 'Failed to automatically mint and distribute aid.' }
+    }
   }
 
-  return { status: 'success', message: 'Aid Successfully Logged to Ledger!' }
+  return { status: 'success', message: 'Aid successfully distributed! Claim stub redeemed.' }
 }

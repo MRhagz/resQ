@@ -6,6 +6,7 @@ import Link from 'next/link'
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true)
+  const [selectedRole, setSelectedRole] = useState('relief_worker')
 
   // Setup action states for both login and signup
   const [loginState, loginAction, isLoginPending] = useActionState(login, null)
@@ -100,6 +101,8 @@ export default function LoginPage() {
                 </label>
                 <select
                   name="role"
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white text-sm font-medium focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 transition-all appearance-none cursor-pointer"
                   style={{
                     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
@@ -111,6 +114,23 @@ export default function LoginPage() {
                   <option value="relief_worker" className="bg-slate-900">Relief Worker</option>
                   <option value="super_admin" className="bg-slate-900">Super Admin</option>
                 </select>
+              </div>
+            )}
+
+            {/* Agency (super_admin only) */}
+            {!isLogin && selectedRole === 'super_admin' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                  Agency
+                </label>
+                <input
+                  type="text"
+                  name="agency"
+                  required
+                  placeholder="e.g. DSWD, Red Cross PH"
+                  className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder-slate-600 text-sm font-medium focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 transition-all"
+                />
+                <p className="text-[10px] text-slate-600 mt-1.5">This will be auto-attached to all claim stubs you create</p>
               </div>
             )}
 
