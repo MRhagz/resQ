@@ -83,5 +83,19 @@ export async function fetchClaimStubs() {
     return { status: 'error', stubs: [], message: error.message }
   }
 
-  return { status: 'success', stubs: data ?? [] }
+  // Map DB column name (beneficiary_uuid) to UI field name (beneficiary_id)
+  const mapped = (data ?? []).map((row) => ({
+    id: row.id,
+    beneficiary_id: row.beneficiary_uuid,
+    disaster_event_id: row.disaster_event_id,
+    aid_type: row.aid_type,
+    agency: row.agency,
+    approved_by: row.approved_by,
+    claimed: row.claimed,
+    claimed_by: row.claimed_by,
+    claimed_at: row.claimed_at,
+    created_at: row.created_at,
+  }))
+
+  return { status: 'success', stubs: mapped }
 }
