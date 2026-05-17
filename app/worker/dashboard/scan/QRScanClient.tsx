@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Navbar from '@/components/Navbar'
+import { distributeAid } from '@/app/actions/worker'
 
 type ScanState = 'idle' | 'scanning' | 'processing' | 'found'
 
@@ -36,12 +37,19 @@ const MOCK_BENEFICIARY: BeneficiaryInfo = {
 
 export default function QRScanClient() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [scanState, setScanState] = useState<ScanState>('idle')
   const [beneficiary, setBeneficiary] = useState<BeneficiaryInfo | null>(null)
   const [scanProgress, setScanProgress] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [result, setResult] = useState<{ status: string; message: string } | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraError, setCameraError] = useState('')
+
+  // Session params from lock-in (in production, use context/cookies)
+  const sessionDisasterId = searchParams.get('disaster') ?? '1'
+  const sessionAidType = searchParams.get('aid') ?? 'Food Ration'
 
   // Start camera
   useEffect(() => {
@@ -88,9 +96,20 @@ export default function QRScanClient() {
     setScanState('found')
   }
 
-  const handleConfirm = () => {
-    // In a real app, this would submit the distribution
-    alert('Aid distribution confirmed! (Frontend only — no backend connected)')
+  const handleConfirm = async () => {
+    if (!beneficiary) return
+    setIsSubmitting(true)
+    setResult(null)
+
+    // Build FormData for the server action
+    const formData = new FormData()
+    formData.set('beneficiary_hash', beneficiary.philsysNumber)
+    formData.set('disaster_id', sessionDisasterId)
+    formData.set('aid_type', sessionAidType)
+
+    const res = await distributeAid(null, formData)
+    setResult({ status: res.status, message: res.message })
+    setIsSubmitting(false)
     setBeneficiary(null)
     setScanState('idle')
     setScanProgress(0)
@@ -333,15 +352,47 @@ export default function QRScanClient() {
                 </button>
                 <button
                   onClick={handleConfirm}
-                  className="flex-[2] py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-bold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  disabled={isSubmitting}
+                  className={`flex-[2] py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                    isSubmitting
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white/80 cursor-wait'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-[0.98]'
+                  }`}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Confirm &amp; Distribute Aid
+                  {isSubmitting ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Redeeming Stub...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Confirm &amp; Distribute Aid
+                    </>
+                  )}
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Result feedback */}
+        {result && (
+          <div className={`mx-4 mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 ${
+            result.status === 'success'
+              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+              : 'bg-red-500/10 border border-red-500/20 text-red-400'
+          }`}>
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d={result.status === 'success' ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+            </svg>
+            {result.message}
           </div>
         )}
 

@@ -4,36 +4,21 @@ import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 /**
- * =============================================================================
- * TOKEN DISTRIBUTION SERVER ACTION — Off-Chain Ruling to Supabase
- * =============================================================================
- *
- * Records distribution rulings (approvals) to the `token_rulings` table.
- * Each ruling is an auditable record: who approved, for what disaster,
- * what aid type, to which beneficiary, under what eligibility criteria.
- *
- * Agency is auto-populated from the admin's staff_profiles.agency column —
- * the client does NOT send agency; it's resolved server-side.
+ * CLAIM STUBS — Admin creates stubs for eligible beneficiaries.
+ * Each stub = one "token" that a worker can redeem at a distribution point.
  */
 
-interface RulingPayload {
-  beneficiaryIds: string[]
+interface ClaimStubPayload {
+  beneficiaryIds: string[]   // system_uuids
   disasterEventId: string
   aidType: string
-  eligibilityCriteria: {
-    region: string
-    is_disaster_affected: string
-  }
 }
 
-export async function recordRulings(payload: RulingPayload) {
+export async function createClaimStubs(payload: ClaimStubPayload) {
   const supabase = await createClient()
 
-  // 1. Verify the user is authenticated and is a super_admin
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { status: 'error', message: 'Unauthorized — not logged in.' }
-  }
+  if (!user) return { status: 'error', message: 'Unauthorized.' }
 
   const { data: profile } = await supabase
     .from('staff_profiles')
@@ -42,114 +27,61 @@ export async function recordRulings(payload: RulingPayload) {
     .single()
 
   if (profile?.role !== 'super_admin') {
-    return { status: 'error', message: 'Forbidden — only admins can record rulings.' }
+    return { status: 'error', message: 'Forbidden — only admins can create claim stubs.' }
   }
 
-  // Agency is auto-resolved from the admin's profile
   const agency = profile.agency
   if (!agency) {
-    return { status: 'error', message: 'Your profile has no agency assigned. Contact system administrator.' }
+    return { status: 'error', message: 'Your profile has no agency assigned.' }
   }
 
-  // 2. Validate payload
-  if (!payload.beneficiaryIds.length) {
-    return { status: 'error', message: 'No beneficiaries selected.' }
-  }
-  if (!payload.disasterEventId || !payload.aidType) {
-    return { status: 'error', message: 'Disaster event and aid type are required.' }
+  if (!payload.beneficiaryIds.length || !payload.disasterEventId || !payload.aidType) {
+    return { status: 'error', message: 'Missing required fields.' }
   }
 
-  // 3. Build ruling rows — agency comes from the admin's profile, not the client
-  const rulingRows = payload.beneficiaryIds.map((beneficiaryId) => ({
-    admin_id: user.id,
+  const rows = payload.beneficiaryIds.map((uuid) => ({
+    beneficiary_uuid: uuid,
     disaster_event_id: payload.disasterEventId,
     aid_type: payload.aidType,
-    agency: agency,
-    beneficiary_id: beneficiaryId,
-    eligibility_criteria: payload.eligibilityCriteria,
-    ruling_status: 'APPROVED',
+    approved_by: user.id,
+    agency,
+    claimed: false,
   }))
 
-  // 4. Batch insert rulings
   const { data, error } = await supabase
-    .from('token_rulings')
-    .insert(rulingRows)
-    .select('id, beneficiary_id, ruling_status')
+    .from('claim_stubs')
+    .insert(rows)
+    .select('id, beneficiary_uuid')
 
   if (error) {
-    console.error('Ruling insert error:', error)
     if (error.code === '23505') {
-      return {
-        status: 'error',
-        message: 'Some beneficiaries already have an active ruling for this disaster/aid combination.',
-      }
+      return { status: 'error', message: 'Some beneficiaries already have stubs for this disaster/aid combo.' }
     }
+    console.error('Stub insert error:', error)
     return { status: 'error', message: error.message }
   }
 
-  // 5. Revalidate the dashboard
   revalidatePath('/admin/dashboard')
-
   return {
     status: 'success',
-    message: `Successfully recorded ${data?.length ?? 0} distribution ruling(s) via ${agency}.`,
-    rulingCount: data?.length ?? 0,
+    message: `Created ${data?.length ?? 0} claim stub(s) via ${agency}. Beneficiaries can now receive ${payload.aidType} at distribution points.`,
+    count: data?.length ?? 0,
   }
 }
 
-/**
- * Fetch ruling history for the dashboard display.
- * Returns the most recent 50 rulings with disaster event info.
- */
-export async function fetchRulings() {
+export async function fetchClaimStubs() {
   const supabase = await createClient()
 
   const { data, error } = await supabase
-    .from('token_rulings')
-    .select(`
-      id,
-      admin_id,
-      disaster_event_id,
-      aid_type,
-      agency,
-      beneficiary_id,
-      eligibility_criteria,
-      ruling_status,
-      ruled_at,
-      distributed_at
-    `)
-    .order('ruled_at', { ascending: false })
+    .from('claim_stubs')
+    .select('id, beneficiary_uuid, disaster_event_id, aid_type, agency, approved_by, claimed, claimed_by, claimed_at, created_at')
+    .order('created_at', { ascending: false })
     .limit(50)
 
   if (error) {
-    console.error('Fetch rulings error:', error)
-    return { status: 'error', rulings: [], message: error.message }
+    console.error('Fetch stubs error:', error)
+    return { status: 'error', stubs: [], message: error.message }
   }
 
-  return { status: 'success', rulings: data ?? [] }
-}
-
-/**
- * Update a ruling's status (e.g. APPROVED → DISTRIBUTED or REVOKED)
- */
-export async function updateRulingStatus(rulingId: string, newStatus: 'DISTRIBUTED' | 'REVOKED') {
-  const supabase = await createClient()
-
-  const updateData: Record<string, unknown> = { ruling_status: newStatus }
-  if (newStatus === 'DISTRIBUTED') {
-    updateData.distributed_at = new Date().toISOString()
-  }
-
-  const { error } = await supabase
-    .from('token_rulings')
-    .update(updateData)
-    .eq('id', rulingId)
-
-  if (error) {
-    console.error('Update ruling error:', error)
-    return { status: 'error', message: error.message }
-  }
-
-  revalidatePath('/admin/dashboard')
-  return { status: 'success', message: `Ruling updated to ${newStatus}.` }
+  return { status: 'success', stubs: data ?? [] }
 }

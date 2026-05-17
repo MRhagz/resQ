@@ -89,89 +89,75 @@ export const AID_TYPES = [
 ] as const
 
 /**
- * Represents a recorded distribution ruling (off-chain audit trail).
- * Agency is auto-populated from the admin's staff_profile.
+ * Represents a claim stub — the associative entity linking
+ * a beneficiary to a disaster/aid type. Created by admin (claimed=false),
+ * redeemed by worker (claimed=true).
  */
-export interface TokenRuling {
+export interface ClaimStub {
   id: string
-  admin_id: string
+  beneficiary_id: string       // maps to beneficiary system_uuid
   disaster_event_id: string
   aid_type: string
-  agency: string // auto-populated from staff_profiles.agency
-  beneficiary_id: string
-  eligibility_criteria: {
-    region: string
-    is_disaster_affected: string
-  }
-  ruling_status: 'APPROVED' | 'DISTRIBUTED' | 'REJECTED' | 'REVOKED'
-  ruled_at: string
-  distributed_at: string | null
+  agency: string               // auto from staff_profiles.agency
+  approved_by: string          // admin who created the stub
+  claimed: boolean
+  claimed_by: string | null    // worker who distributed
+  claimed_at: string | null
+  created_at: string
 }
 
 /**
- * Mock ruling history for demo purposes.
- * In production, these come from the token_rulings Supabase table.
+ * Mock claim stubs for demo purposes.
+ * In production, these come from the claim_stubs Supabase table.
  */
-export const MOCK_RULINGS: TokenRuling[] = [
+export const MOCK_CLAIM_STUBS: ClaimStub[] = [
   {
-    id: 'r001',
-    admin_id: 'admin-1',
+    id: 'cs001',
+    beneficiary_id: 'b001',
     disaster_event_id: '1',
     aid_type: 'Food Ration',
     agency: 'DSWD',
-    beneficiary_id: 'b001',
-    eligibility_criteria: {
-      region: 'NCR',
-      is_disaster_affected: 'yes',
-    },
-    ruling_status: 'DISTRIBUTED',
-    ruled_at: '2026-05-15T09:00:00Z',
-    distributed_at: '2026-05-15T11:30:00Z',
+    approved_by: 'admin-1',
+    claimed: true,
+    claimed_by: 'worker-1',
+    claimed_at: '2026-05-15T11:30:00Z',
+    created_at: '2026-05-15T09:00:00Z',
   },
   {
-    id: 'r002',
-    admin_id: 'admin-1',
+    id: 'cs002',
+    beneficiary_id: 'b002',
     disaster_event_id: '1',
     aid_type: 'Medical Kit',
     agency: 'DSWD',
-    beneficiary_id: 'b002',
-    eligibility_criteria: {
-      region: 'NCR',
-      is_disaster_affected: 'yes',
-    },
-    ruling_status: 'APPROVED',
-    ruled_at: '2026-05-16T14:20:00Z',
-    distributed_at: null,
+    approved_by: 'admin-1',
+    claimed: false,
+    claimed_by: null,
+    claimed_at: null,
+    created_at: '2026-05-16T14:20:00Z',
   },
   {
-    id: 'r003',
-    admin_id: 'admin-1',
+    id: 'cs003',
+    beneficiary_id: 'b005',
     disaster_event_id: '2',
     aid_type: 'Shelter Kit',
     agency: 'Red Cross PH',
-    beneficiary_id: 'b005',
-    eligibility_criteria: {
-      region: 'Region XI',
-      is_disaster_affected: 'yes',
-    },
-    ruling_status: 'APPROVED',
-    ruled_at: '2026-05-17T08:45:00Z',
-    distributed_at: null,
+    approved_by: 'admin-1',
+    claimed: false,
+    claimed_by: null,
+    claimed_at: null,
+    created_at: '2026-05-17T08:45:00Z',
   },
   {
-    id: 'r004',
-    admin_id: 'admin-1',
+    id: 'cs004',
+    beneficiary_id: 'b009',
     disaster_event_id: '4',
     aid_type: 'Food Ration',
     agency: 'DSWD',
-    beneficiary_id: 'b009',
-    eligibility_criteria: {
-      region: 'Region V',
-      is_disaster_affected: 'yes',
-    },
-    ruling_status: 'REVOKED',
-    ruled_at: '2026-05-16T10:00:00Z',
-    distributed_at: null,
+    approved_by: 'admin-1',
+    claimed: true,
+    claimed_by: 'worker-2',
+    claimed_at: '2026-05-16T15:00:00Z',
+    created_at: '2026-05-16T10:00:00Z',
   },
 ]
 

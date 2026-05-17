@@ -1,23 +1,21 @@
 "use client"
 
 /**
- * =============================================================================
- * TOKEN DISTRIBUTION CLIENT — Filter, select, and record off-chain rulings
- * =============================================================================
+ * CLAIM STUB DISTRIBUTION — Filter, select, and create claim stubs
  *
- * Flow: Filter Beneficiaries → Select → Configure Campaign → Record Ruling
- * All rulings are stored in Supabase's token_rulings table (off-chain).
- * Agency is auto-populated from the admin's staff_profile.
+ * Flow: Filter Beneficiaries → Select → Configure → Create Claim Stubs
+ * Stubs are stored in Supabase's claim_stubs table.
+ * Workers later redeem stubs by scanning beneficiary QR codes.
  */
 
 import { useState, useMemo } from 'react'
 import {
   MOCK_BENEFICIARIES,
   MOCK_DISASTERS,
-  MOCK_RULINGS,
+  MOCK_CLAIM_STUBS,
   REGIONS,
   AID_TYPES,
-  type TokenRuling,
+  type ClaimStub,
 } from './mock-data'
 
 // Mock admin agency — in production, fetched from staff_profiles.agency
@@ -38,7 +36,7 @@ export default function TokenDistributionClient() {
   // === Action State ===
   const [isRecording, setIsRecording] = useState(false)
   const [result, setResult] = useState<{ status: string; message: string } | null>(null)
-  const [rulings, setRulings] = useState<TokenRuling[]>(MOCK_RULINGS)
+  const [stubs, setStubs] = useState<ClaimStub[]>(MOCK_CLAIM_STUBS)
 
   // === Filtered Data ===
   const filteredBeneficiaries = useMemo(() => {
@@ -68,38 +66,32 @@ export default function TokenDistributionClient() {
     setSelectedIds(new Set())
   }
 
-  const handleRecordRuling = async () => {
+  const handleCreateStubs = async () => {
     if (selectedIds.size === 0 || !disasterEventId) return
     setIsRecording(true)
     setResult(null)
 
-    // Simulate server action delay (in production, this calls recordRulings server action)
+    // Simulate server action delay (in production, calls createClaimStubs server action)
     await new Promise((r) => setTimeout(r, 1800))
 
-    const criteria = {
-      region: regionFilter,
-      is_disaster_affected: disasterAffectedFilter,
-    }
-
-    // Create mock ruling entries — agency comes from admin profile automatically
-    const newRulings: TokenRuling[] = Array.from(selectedIds).map((beneficiaryId, i) => ({
-      id: `r${Date.now()}-${i}`,
-      admin_id: 'admin-current',
+    const newStubs: ClaimStub[] = Array.from(selectedIds).map((beneficiaryId, i) => ({
+      id: `cs${Date.now()}-${i}`,
+      beneficiary_id: beneficiaryId,
       disaster_event_id: disasterEventId,
       aid_type: aidType,
-      agency: MOCK_ADMIN_AGENCY, // auto from staff_profiles
-      beneficiary_id: beneficiaryId,
-      eligibility_criteria: criteria,
-      ruling_status: 'APPROVED' as const,
-      ruled_at: new Date().toISOString(),
-      distributed_at: null,
+      agency: MOCK_ADMIN_AGENCY,
+      approved_by: 'admin-current',
+      claimed: false,
+      claimed_by: null,
+      claimed_at: null,
+      created_at: new Date().toISOString(),
     }))
 
-    setRulings((prev) => [...newRulings, ...prev])
+    setStubs((prev) => [...newStubs, ...prev])
     setIsRecording(false)
     setResult({
       status: 'success',
-      message: `Recorded ${newRulings.length} ruling(s) to off-chain database. Beneficiaries approved for ${aidType} distribution via ${MOCK_ADMIN_AGENCY}.`,
+      message: `Created ${newStubs.length} claim stub(s) via ${MOCK_ADMIN_AGENCY}. Beneficiaries can now receive ${aidType} at distribution points.`,
     })
     setSelectedIds(new Set())
   }
@@ -214,7 +206,7 @@ export default function TokenDistributionClient() {
         </div>
       </div>
 
-      {/* ===== SECTION 3: CAMPAIGN CONFIG + RULING ACTION ===== */}
+      {/* ===== SECTION 3: CAMPAIGN CONFIG + CLAIM STUB ACTION ===== */}
       <div className={`rounded-2xl border overflow-hidden transition-all duration-300 ${
         selectedIds.size > 0 ? 'bg-violet-500/[0.06] border-violet-500/20 backdrop-blur-xl' : 'bg-white/[0.02] border-white/[0.06]'
       }`}>
@@ -226,7 +218,7 @@ export default function TokenDistributionClient() {
               </svg>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">Campaign Configuration & Ruling</h3>
+              <h3 className="text-sm font-semibold text-white">Campaign Configuration</h3>
               <p className="text-xs text-slate-500">
                 {selectedIds.size > 0
                   ? <><span className="text-violet-400 font-bold">{selectedIds.size}</span> beneficiar{selectedIds.size === 1 ? 'y' : 'ies'} selected ({selectedInView} in view)</>
@@ -257,7 +249,7 @@ export default function TokenDistributionClient() {
           {/* Eligibility Criteria Snapshot */}
           {selectedIds.size > 0 && (
             <div className="px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] mb-4">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Ruling Criteria Snapshot</p>
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Eligibility Snapshot</p>
               <div className="flex flex-wrap gap-2">
                 {regionFilter !== 'all' && <CriteriaBadge label="Region" value={regionFilter} />}
                 {disasterAffectedFilter !== 'all' && <CriteriaBadge label="Affected" value={disasterAffectedFilter} />}
@@ -268,9 +260,9 @@ export default function TokenDistributionClient() {
             </div>
           )}
 
-          {/* Record Ruling Button */}
+          {/* Create Stubs Button */}
           <button
-            onClick={handleRecordRuling}
+            onClick={handleCreateStubs}
             disabled={selectedIds.size === 0 || !disasterEventId || isRecording}
             className={`w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-bold tracking-wide uppercase transition-all duration-300 flex items-center justify-center gap-2 ${
               selectedIds.size > 0 && disasterEventId && !isRecording
@@ -286,20 +278,20 @@ export default function TokenDistributionClient() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Recording Ruling...
+                Creating Stubs...
               </>
             ) : (
               <>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
-                Record Off-Chain Ruling
+                Create Claim Stubs
               </>
             )}
           </button>
 
           {!disasterEventId && selectedIds.size > 0 && (
-            <p className="text-[10px] text-amber-400 mt-2">⚠ Select a disaster event to enable ruling</p>
+            <p className="text-[10px] text-amber-400 mt-2">⚠ Select a disaster event to enable stub creation</p>
           )}
         </div>
 
@@ -320,7 +312,7 @@ export default function TokenDistributionClient() {
         )}
       </div>
 
-      {/* ===== SECTION 4: RULING HISTORY ===== */}
+      {/* ===== SECTION 4: CLAIM STUB HISTORY ===== */}
       <div className="rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] overflow-hidden">
         <div className="p-5 border-b border-white/[0.06] flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
@@ -329,8 +321,8 @@ export default function TokenDistributionClient() {
             </svg>
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-white">Ruling History</h2>
-            <p className="text-xs text-slate-500">{rulings.length} ruling(s) recorded off-chain</p>
+            <h2 className="text-sm font-semibold text-white">Claim Stub History</h2>
+            <p className="text-xs text-slate-500">{stubs.length} stub(s) created</p>
           </div>
         </div>
 
@@ -342,34 +334,33 @@ export default function TokenDistributionClient() {
                 <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Beneficiary</th>
                 <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Disaster</th>
                 <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Aid Type</th>
-                <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Ruled At</th>
+                <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Created</th>
               </tr>
             </thead>
             <tbody>
-              {rulings.length === 0 ? (
+              {stubs.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-sm text-slate-600 italic">
-                    No rulings recorded yet.
+                    No claim stubs created yet.
                   </td>
                 </tr>
               ) : (
-                rulings.map((r) => (
-                  <tr key={r.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+                stubs.map((s) => (
+                  <tr key={s.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
                     <td className="p-3">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        r.ruling_status === 'APPROVED' ? 'bg-blue-500/15 text-blue-400'
-                        : r.ruling_status === 'DISTRIBUTED' ? 'bg-emerald-500/15 text-emerald-400'
-                        : r.ruling_status === 'REVOKED' ? 'bg-red-500/15 text-red-400'
-                        : 'bg-slate-500/15 text-slate-400'
-                      }`}>{r.ruling_status}</span>
+                        s.claimed
+                          ? 'bg-emerald-500/15 text-emerald-400'
+                          : 'bg-amber-500/15 text-amber-400'
+                      }`}>{s.claimed ? 'CLAIMED' : 'UNCLAIMED'}</span>
                     </td>
                     <td className="p-3">
-                      <p className="text-sm text-white font-medium">{getBeneficiaryName(r.beneficiary_id)}</p>
-                      <p className="text-[10px] font-mono text-slate-600">{r.beneficiary_id}</p>
+                      <p className="text-sm text-white font-medium">{getBeneficiaryName(s.beneficiary_id)}</p>
+                      <p className="text-[10px] font-mono text-slate-600">{s.beneficiary_id}</p>
                     </td>
-                    <td className="p-3 text-xs text-slate-300 hidden sm:table-cell">{getDisasterName(r.disaster_event_id)}</td>
-                    <td className="p-3 text-xs text-white">{r.aid_type}</td>
-                    <td className="p-3 text-xs text-slate-500 hidden md:table-cell">{formatDate(r.ruled_at)}</td>
+                    <td className="p-3 text-xs text-slate-300 hidden sm:table-cell">{getDisasterName(s.disaster_event_id)}</td>
+                    <td className="p-3 text-xs text-white">{s.aid_type}</td>
+                    <td className="p-3 text-xs text-slate-500 hidden md:table-cell">{formatDate(s.created_at)}</td>
                   </tr>
                 ))
               )}
