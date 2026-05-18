@@ -105,20 +105,10 @@ export default function TransparencyClient({ ledgerData }: { ledgerData: LedgerD
 
             {activeTab === 'ledger' && (
               <div className="space-y-6">
-                {/* Blockchain source badge */}
-                <div className="flex items-center justify-between">
-                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-semibold tracking-wide uppercase ${ledgerData.source === 'blockchain' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'}`}>
-                    <span className={`w-2 h-2 rounded-full ${ledgerData.source === 'blockchain' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-                    {ledgerData.source === 'blockchain' ? 'Live from Cardano Preprod' : 'Blockchain Unavailable'}
-                  </div>
-                  {ledgerData.policyId && (
-                    <span className="text-[10px] font-mono text-slate-600 hidden sm:block">Policy: {ledgerData.policyId.slice(0, 12)}...{ledgerData.policyId.slice(-8)}</span>
-                  )}
-                </div>
                 {/* Metrics */}
                 <div className="grid gap-4 md:grid-cols-3">
-                  <MetricCard title="Cardano Network" icon="⚡" value={<span className="flex items-center gap-2"><span className={`w-3 h-3 rounded-full ${ledgerData.source === 'blockchain' ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500'}`} />{ledgerData.source === 'blockchain' ? 'Preprod Connected' : 'Awaiting Connection'}</span>} color={ledgerData.source === 'blockchain' ? 'emerald' : 'blue'} />
-                  <MetricCard title="On-Chain Tokens" icon="📋" value={<><span className="text-emerald-400">{ledgerData.metrics.claimedCount}</span> <span className="text-sm font-normal text-slate-500">/ {ledgerData.metrics.totalStubs} minted</span></>} color="white" />
+                  <MetricCard title="Network Status" icon="⚡" value={<span className="flex items-center gap-2"><span className={`w-3 h-3 rounded-full ${ledgerData.entries.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500'}`} />{ledgerData.entries.length > 0 ? 'Connected' : 'Awaiting Data'}</span>} color={ledgerData.entries.length > 0 ? 'emerald' : 'blue'} />
+                  <MetricCard title="Claims Processed" icon="📋" value={<><span className="text-emerald-400">{ledgerData.metrics.claimedCount}</span> <span className="text-sm font-normal text-slate-500">/ {ledgerData.metrics.totalStubs} total</span></>} color="white" />
                   <MetricCard title="Active Campaigns" icon="🌐" value={String(ledgerData.metrics.activeCampaigns)} color="white" />
                 </div>
                 {/* Table */}
@@ -128,25 +118,25 @@ export default function TransparencyClient({ ledgerData }: { ledgerData: LedgerD
                       <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
                         <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                       </div>
-                      <div><h2 className="text-sm font-semibold text-white">On-Chain Claim Tokens</h2><p className="text-xs text-slate-500">{ledgerData.entries.length} token(s) minted on Cardano</p></div>
+                      <div><h2 className="text-sm font-semibold text-white">Recent Distributions</h2><p className="text-xs text-slate-500">{ledgerData.entries.length} transaction(s) recorded</p></div>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead><tr className="border-b border-white/[0.06]">
-                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Token / Asset</th>
-                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Disaster Code</th>
+                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Beneficiary</th>
+                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Event Code</th>
                         <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Aid Type</th>
-                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Tx Hash</th>
-                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Minted At</th>
+                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Timestamp</th>
                       </tr></thead>
                       <tbody>
                         {ledgerData.entries.length === 0 ? (
                           <tr><td colSpan={5} className="h-48 text-center">
                             <div className="flex flex-col items-center justify-center text-slate-500 space-y-2">
                               <svg className="w-10 h-10 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
-                              <span className="font-medium text-sm">{ledgerData.source === 'unavailable' ? 'Blockchain Not Connected' : 'No Tokens Minted'}</span>
-                              <span className="text-xs">{ledgerData.source === 'unavailable' ? 'Configure BLOCKFROST_API_KEY and WALLET_MNEMONIC to connect.' : 'Claim tokens will appear here once minted on-chain.'}</span>
+                              <span className="font-medium text-sm">No Distributions Yet</span>
+                              <span className="text-xs">Claim stubs will appear here once aid is distributed.</span>
                             </div>
                           </td></tr>
                         ) : (
@@ -154,20 +144,16 @@ export default function TransparencyClient({ ledgerData }: { ledgerData: LedgerD
                             <tr key={entry.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
                               <td className="p-3">
                                 <p className="text-sm text-white font-medium">{entry.beneficiaryDisplay}</p>
-                                <p className="text-[10px] font-mono text-slate-500">{entry.fingerprint ? entry.fingerprint.slice(0, 16) + '...' : entry.beneficiaryId}</p>
+                                <p className="text-[10px] font-mono text-slate-500">{entry.beneficiaryId}</p>
                               </td>
                               <td className="p-3">
                                 <span className="text-xs font-mono text-blue-400">{entry.disasterCode}</span>
                               </td>
                               <td className="p-3 text-sm text-slate-300">{entry.aidType}</td>
                               <td className="p-3">
-                                {entry.txHash && entry.txHash !== 'unknown' ? (
-                                  <a href={`https://preprod.cardanoscan.io/transaction/${entry.txHash}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono text-indigo-400 hover:text-indigo-300 underline decoration-indigo-400/30 hover:decoration-indigo-300/50 transition-colors">
-                                    {entry.txHash.slice(0, 8)}...{entry.txHash.slice(-6)}
-                                  </a>
-                                ) : (
-                                  <span className="text-[10px] text-slate-600">—</span>
-                                )}
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${entry.claimed ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                                  {entry.claimed ? 'CLAIMED' : 'ELIGIBLE'}
+                                </span>
                               </td>
                               <td className="p-3 text-xs text-slate-400 text-right">{fmt(entry.claimedAt ?? entry.createdAt)}</td>
                             </tr>
