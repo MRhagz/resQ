@@ -124,9 +124,33 @@
 
   body {
     @apply bg-background text-foreground;
+    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
   }
 
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Ensure proper tap targets on mobile */
+  button, a, select, input {
+    min-height: 44px;
+    @media (min-width: 640px) {
+      min-height: auto;
+    }
+  }
+
+  /* Allow small UI badges and inline buttons to be smaller */
+  .badge, [class*="rounded-full"][class*="text-[10px]"],
+  [class*="rounded-full"][class*="text-[11px]"] {
+    min-height: auto;
+  }
+}
+
+/* Responsive table: scroll horizontally on small screens */
+@layer utilities {
+  .responsive-table-wrapper {
+    @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
   }
 }

@@ -63,21 +63,21 @@ export default function LockInSessionClient({ disasters = [] }: { disasters?: an
       <div className="relative z-10 flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-lg">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 backdrop-blur-sm">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex items-center gap-2 mb-3 sm:mb-4 px-3 sm:px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 backdrop-blur-sm">
             <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-            <span className="text-xs font-medium text-blue-300 tracking-wide uppercase">Relief Operations Active</span>
+            <span className="text-[10px] sm:text-xs font-medium text-blue-300 tracking-wide uppercase">Relief Operations Active</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-2">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight mb-2">
             Worker Dashboard
           </h1>
-          <p className="text-slate-400 text-sm max-w-sm mx-auto leading-relaxed">
+          <p className="text-slate-400 text-xs sm:text-sm max-w-sm mx-auto leading-relaxed">
             Choose your operation mode to get started
           </p>
         </div>
 
         {/* Mode Toggle */}
-        <div className="flex gap-2 mb-6 p-1 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+        <div className="flex gap-2 mb-4 sm:mb-6 p-1 rounded-xl bg-white/[0.04] border border-white/[0.08]">
           <button
             onClick={() => setMode('register')}
             className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 ${
@@ -274,7 +274,7 @@ export default function LockInSessionClient({ disasters = [] }: { disasters?: an
                 </svg>
                 <span className="text-xs font-medium text-amber-400/80">Session Summary</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <p className="text-[10px] text-slate-500 uppercase tracking-wider">Operation</p>
                   <p className="text-xs text-white font-medium mt-0.5">{selectedDisasterData?.name}</p>
