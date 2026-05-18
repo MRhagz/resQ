@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { parsePhilSysQR } from '@/utils/philsys'
@@ -30,6 +30,23 @@ export default function TransparencyClient({ ledgerData }: { ledgerData: LedgerD
   const [lookupState, setLookupState] = useState<LookupState>('idle')
   const [result, setResult] = useState<LookupResult | null>(null)
   const [manualId, setManualId] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  // Filter ledger entries by date range
+  const filteredEntries = useMemo(() => {
+    let entries = [...ledgerData.entries]
+    if (dateFrom) {
+      const from = new Date(dateFrom)
+      entries = entries.filter(e => new Date(e.mintedAt) >= from)
+    }
+    if (dateTo) {
+      const to = new Date(dateTo)
+      to.setHours(23, 59, 59, 999)
+      entries = entries.filter(e => new Date(e.mintedAt) <= to)
+    }
+    return entries
+  }, [ledgerData.entries, dateFrom, dateTo])
 
   const handleScan = async (rawData: string) => {
     if (lookupState === 'loading') return
@@ -105,57 +122,96 @@ export default function TransparencyClient({ ledgerData }: { ledgerData: LedgerD
 
             {activeTab === 'ledger' && (
               <div className="space-y-6">
+                {/* Network status badge */}
+                <div className="flex items-center justify-between">
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-semibold tracking-wide uppercase ${ledgerData.source === 'blockchain' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'}`}>
+                    <span className={`w-2 h-2 rounded-full ${ledgerData.source === 'blockchain' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                    {ledgerData.source === 'blockchain' ? `Live — Cardano ${ledgerData.network}` : 'Blockchain Unavailable'}
+                  </div>
+                  {ledgerData.metrics.policyId && ledgerData.metrics.policyId !== 'N/A' && (
+                    <span className="text-[10px] font-mono text-slate-600 hidden sm:block">Policy: {ledgerData.metrics.policyId.slice(0, 12)}…{ledgerData.metrics.policyId.slice(-8)}</span>
+                  )}
+                </div>
                 {/* Metrics */}
                 <div className="grid gap-4 md:grid-cols-3">
-                  <MetricCard title="Network Status" icon="⚡" value={<span className="flex items-center gap-2"><span className={`w-3 h-3 rounded-full ${ledgerData.entries.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500'}`} />{ledgerData.entries.length > 0 ? 'Connected' : 'Awaiting Data'}</span>} color={ledgerData.entries.length > 0 ? 'emerald' : 'blue'} />
-                  <MetricCard title="Claims Processed" icon="📋" value={<><span className="text-emerald-400">{ledgerData.metrics.claimedCount}</span> <span className="text-sm font-normal text-slate-500">/ {ledgerData.metrics.totalStubs} total</span></>} color="white" />
-                  <MetricCard title="Active Campaigns" icon="🌐" value={String(ledgerData.metrics.activeCampaigns)} color="white" />
+                  <MetricCard title="Cardano Network" icon="⚡" value={<span className="flex items-center gap-2"><span className={`w-3 h-3 rounded-full ${ledgerData.source === 'blockchain' ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500'}`} />{ledgerData.source === 'blockchain' ? `${ledgerData.network} Connected` : 'Awaiting Connection'}</span>} color={ledgerData.source === 'blockchain' ? 'emerald' : 'blue'} />
+                  <MetricCard title="On-Chain Tokens" icon="📋" value={<span className="text-white">{ledgerData.metrics.totalAssets}</span>} color="white" />
+                  <MetricCard title="Policy ID" icon="🔑" value={<span className="text-[11px] font-mono text-slate-400 truncate">{ledgerData.metrics.policyId !== 'N/A' ? ledgerData.metrics.policyId.slice(0, 16) + '…' : '—'}</span>} color="white" />
                 </div>
                 {/* Table */}
                 <div className="rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] overflow-hidden">
-                  <div className="p-5 border-b border-white/[0.06] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                  <div className="p-5 border-b border-white/[0.06] space-y-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                        </div>
+                        <div><h2 className="text-sm font-semibold text-white">On-Chain Claim Tokens</h2><p className="text-xs text-slate-500">{filteredEntries.length} of {ledgerData.entries.length} token(s) shown</p></div>
                       </div>
-                      <div><h2 className="text-sm font-semibold text-white">Recent Distributions</h2><p className="text-xs text-slate-500">{ledgerData.entries.length} transaction(s) recorded</p></div>
+                    </div>
+                    {/* Date Filter */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Filter by date:</span>
+                      <div className="flex items-center gap-2">
+                        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500/50 transition-colors [color-scheme:dark]" />
+                        <span className="text-xs text-slate-600">to</span>
+                        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500/50 transition-colors [color-scheme:dark]" />
+                      </div>
+                      {(dateFrom || dateTo) && (
+                        <button onClick={() => { setDateFrom(''); setDateTo('') }} className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold transition-colors">Clear</button>
+                      )}
                     </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead><tr className="border-b border-white/[0.06]">
-                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Beneficiary</th>
-                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Event Code</th>
+                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Token Name</th>
+                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Disaster Code</th>
                         <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Aid Type</th>
-                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Timestamp</th>
+                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Tx Hash</th>
+                        <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Minted At</th>
                       </tr></thead>
                       <tbody>
-                        {ledgerData.entries.length === 0 ? (
+                        {filteredEntries.length === 0 ? (
                           <tr><td colSpan={5} className="h-48 text-center">
                             <div className="flex flex-col items-center justify-center text-slate-500 space-y-2">
                               <svg className="w-10 h-10 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
-                              <span className="font-medium text-sm">No Distributions Yet</span>
-                              <span className="text-xs">Claim stubs will appear here once aid is distributed.</span>
+                              <span className="font-medium text-sm">
+                                {ledgerData.source === 'unavailable' ? 'Blockchain Not Connected' :
+                                 (dateFrom || dateTo) && ledgerData.entries.length > 0 ? 'No Tokens in Date Range' :
+                                 'No Tokens Minted Yet'}
+                              </span>
+                              <span className="text-xs">
+                                {ledgerData.source === 'unavailable' ? 'Set BLOCKFROST_API_KEY and SYSTEM_POLICY_ID in .env to connect.' :
+                                 (dateFrom || dateTo) && ledgerData.entries.length > 0 ? 'Try adjusting the date filter to see more results.' :
+                                 'Claim tokens will appear here once minted on-chain.'}
+                              </span>
+                              {(dateFrom || dateTo) && ledgerData.entries.length > 0 && (
+                                <button onClick={() => { setDateFrom(''); setDateTo('') }} className="mt-2 px-4 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-semibold hover:bg-indigo-500/20 transition-colors">Clear Filter</button>
+                              )}
                             </div>
                           </td></tr>
                         ) : (
-                          ledgerData.entries.map((entry: LedgerEntry) => (
+                          filteredEntries.map((entry: LedgerEntry) => (
                             <tr key={entry.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
                               <td className="p-3">
-                                <p className="text-sm text-white font-medium">{entry.beneficiaryDisplay}</p>
-                                <p className="text-[10px] font-mono text-slate-500">{entry.beneficiaryId}</p>
+                                <p className="text-sm text-white font-medium">{entry.tokenName}</p>
+                                <p className="text-[10px] font-mono text-slate-500">{entry.assetFingerprint ? entry.assetFingerprint.slice(0, 16) + '…' : ''}</p>
                               </td>
                               <td className="p-3">
                                 <span className="text-xs font-mono text-blue-400">{entry.disasterCode}</span>
                               </td>
                               <td className="p-3 text-sm text-slate-300">{entry.aidType}</td>
                               <td className="p-3">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${entry.claimed ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
-                                  {entry.claimed ? 'CLAIMED' : 'ELIGIBLE'}
-                                </span>
+                                {entry.mintTxHash && entry.mintTxHash !== 'unknown' ? (
+                                  <a href={`${ledgerData.explorerUrl}/transaction/${entry.mintTxHash}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono text-indigo-400 hover:text-indigo-300 underline decoration-indigo-400/30 hover:decoration-indigo-300/50 transition-colors">
+                                    {entry.mintTxHash.slice(0, 8)}…{entry.mintTxHash.slice(-6)}
+                                  </a>
+                                ) : (
+                                  <span className="text-[10px] text-slate-600">—</span>
+                                )}
                               </td>
-                              <td className="p-3 text-xs text-slate-400 text-right">{fmt(entry.claimedAt ?? entry.createdAt)}</td>
+                              <td className="p-3 text-xs text-slate-400 text-right">{fmt(entry.mintedAt)}</td>
                             </tr>
                           ))
                         )}
@@ -284,27 +340,42 @@ export default function TransparencyClient({ ledgerData }: { ledgerData: LedgerD
                               <p className="text-xs text-slate-600 mt-1">You will see tokens here once an admin approves aid for your profile.</p>
                             </div>
                           ) : (
-                            <div className="divide-y divide-white/[0.04]">
-                              {result.tokens.map(t => (
-                                <div key={t.id} className="p-4 hover:bg-white/[0.02] transition-colors">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-[10px] font-mono text-blue-400">{t.disasterCode}</span>
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.claimed ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
-                                          {t.claimed ? 'CLAIMED' : 'ELIGIBLE'}
-                                        </span>
+                            <div>
+                              {/* Summary stats */}
+                              <div className="p-4 border-b border-white/[0.04] flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                  <span className="text-xs text-slate-400"><span className="text-emerald-400 font-bold">{result.tokens.filter(t => t.claimed).length}</span> claimed</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                                  <span className="text-xs text-slate-400"><span className="text-amber-400 font-bold">{result.tokens.filter(t => !t.claimed).length}</span> eligible</span>
+                                </div>
+                              </div>
+                              <div className="divide-y divide-white/[0.04]">
+                                {[...result.tokens]
+                                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                  .map(t => (
+                                  <div key={t.id} className="p-4 hover:bg-white/[0.02] transition-colors">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-[10px] font-mono text-blue-400">{t.disasterCode}</span>
+                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.claimed ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                                            {t.claimed ? 'CLAIMED' : 'ELIGIBLE'}
+                                          </span>
+                                        </div>
+                                        <p className="text-sm text-white font-medium">{t.disasterName}</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">{t.aidType} • via {t.agency}</p>
                                       </div>
-                                      <p className="text-sm text-white font-medium">{t.disasterName}</p>
-                                      <p className="text-xs text-slate-500 mt-0.5">{t.aidType} • via {t.agency}</p>
-                                    </div>
-                                    <div className="text-right flex-shrink-0">
-                                      <p className="text-[10px] text-slate-500">{t.claimed ? 'Claimed' : 'Issued'}</p>
-                                      <p className="text-xs text-slate-400">{fmt(t.claimed && t.claimedAt ? t.claimedAt : t.createdAt)}</p>
+                                      <div className="text-right flex-shrink-0">
+                                        <p className="text-[10px] text-slate-500">{t.claimed ? 'Claimed' : 'Issued'}</p>
+                                        <p className="text-xs text-slate-400">{fmt(t.claimed && t.claimedAt ? t.claimedAt : t.createdAt)}</p>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>

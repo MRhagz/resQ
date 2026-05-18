@@ -8,11 +8,6 @@ import crypto from 'crypto'
  *
  * Allows beneficiaries to look up their claim history by providing
  * their PhilSys Number (hashed on-server for privacy).
- *
- * Returns:
- *   - All claim stubs (eligible/claimed) linked to the beneficiary
- *   - Associated disaster event info
- *   - No PII is returned — only hashed references and timestamps
  */
 
 interface TokenHistoryResult {
@@ -45,7 +40,7 @@ export async function lookupBeneficiaryTokens(
   const supabase = await createClient()
   const trimmedId = nationalId.trim()
 
-  // Strategy 1: Hash the ID the same way registration does (real registrations)
+  // Strategy 1: Hash the ID the same way registration does
   const salt = process.env.SYSTEM_HASH_SALT
   if (salt) {
     const sanitizedId = trimmedId.replace(/\s+/g, '').toUpperCase()
@@ -63,7 +58,7 @@ export async function lookupBeneficiaryTokens(
     if (beneficiary) return await fetchTokenHistory(supabase, beneficiary)
   }
 
-  // Strategy 2: Raw id_hash lookup (seeded/test data with plain-text hashes)
+  // Strategy 2: Raw id_hash lookup (seeded/test data)
   const { data: rawMatch } = await supabase
     .from('beneficiaries')
     .select('system_uuid, general_demographics, created_at')
@@ -72,7 +67,7 @@ export async function lookupBeneficiaryTokens(
 
   if (rawMatch) return await fetchTokenHistory(supabase, rawMatch)
 
-  // Strategy 3: Lookup by system_uuid (user may have their wallet ID)
+  // Strategy 3: Lookup by system_uuid
   const { data: uuidMatch } = await supabase
     .from('beneficiaries')
     .select('system_uuid, general_demographics, created_at')
@@ -81,7 +76,7 @@ export async function lookupBeneficiaryTokens(
 
   if (uuidMatch) return await fetchTokenHistory(supabase, uuidMatch)
 
-  // Strategy 4: Partial id_hash match (e.g. user enters "maria" and we find "hash_maria_santos")
+  // Strategy 4: Partial id_hash match
   const { data: partialMatches } = await supabase
     .from('beneficiaries')
     .select('system_uuid, general_demographics, created_at')
@@ -108,12 +103,9 @@ async function fetchTokenHistory(
 ): Promise<TokenHistoryResult> {
   const demo = (beneficiary.general_demographics as Record<string, unknown>) ?? {}
 
-  // 1. Fetch all claim stubs for this beneficiary
   const { data: stubs, error: stubError } = await supabase
     .from('claim_stubs')
-    .select(
-      'id, disaster_event_id, aid_type, agency, claimed, claimed_at, created_at'
-    )
+    .select('id, disaster_event_id, aid_type, agency, claimed, claimed_at, created_at')
     .eq('beneficiary_uuid', beneficiary.system_uuid)
     .order('created_at', { ascending: false })
 
@@ -122,11 +114,7 @@ async function fetchTokenHistory(
     return { status: 'error', message: 'Failed to fetch token history.' }
   }
 
-  // 2. Fetch associated disaster events for context
-  const disasterIds = [
-    ...new Set((stubs ?? []).map((s: any) => s.disaster_event_id)),
-  ]
-
+  const disasterIds = [...new Set((stubs ?? []).map((s: any) => s.disaster_event_id))]
   let disasterMap: Record<string, { name: string; system_code: string }> = {}
 
   if (disasterIds.length > 0) {
@@ -142,12 +130,8 @@ async function fetchTokenHistory(
     }
   }
 
-  // 3. Build response
   const tokens = (stubs ?? []).map((s: any) => {
-    const disaster = disasterMap[s.disaster_event_id] ?? {
-      name: 'Unknown',
-      system_code: '???',
-    }
+    const disaster = disasterMap[s.disaster_event_id] ?? { name: 'Unknown', system_code: '???' }
     return {
       id: s.id,
       disasterName: disaster.name,
@@ -172,120 +156,91 @@ async function fetchTokenHistory(
   }
 }
 
-/**
- * PUBLIC LEDGER DATA — Fetches real-time distribution data from the
- * database for the transparency portal's Distribution Ledger tab.
- *
- * Returns claim stubs with disaster event context and aggregated metrics.
- * No PII is exposed — only hashed beneficiary IDs and system references.
- */
+// =============================================================================
+// PUBLIC LEDGER — Fetches from the Cardano blockchain via Blockfrost
+// =============================================================================
 
 export interface LedgerEntry {
   id: string
-  beneficiaryId: string
-  beneficiaryDisplay: string
+  tokenName: string
+  assetFingerprint: string
   disasterCode: string
-  disasterName: string
   aidType: string
   agency: string
-  claimed: boolean
-  claimedAt: string | null
-  createdAt: string
+  region: string
+  mintTxHash: string
+  mintedAt: string
+  quantity: number
 }
 
 export interface LedgerData {
   entries: LedgerEntry[]
   metrics: {
-    totalStubs: number
-    claimedCount: number
-    activeCampaigns: number
+    totalAssets: number
+    policyId: string
   }
+  network: string
+  explorerUrl: string
+  source: 'blockchain' | 'unavailable'
 }
 
 export async function fetchPublicLedger(): Promise<LedgerData> {
-  const supabase = await createClient()
+  const BLOCKFROST_KEY = process.env.BLOCKFROST_API_KEY
+  const policyId = process.env.SYSTEM_POLICY_ID
 
-  // 1. Fetch recent claim stubs
-  const { data: stubs, error: stubError } = await supabase
-    .from('claim_stubs')
-    .select('id, beneficiary_uuid, disaster_event_id, aid_type, agency, claimed, claimed_at, created_at')
-    .order('created_at', { ascending: false })
-    .limit(100)
-
-  if (stubError || !stubs) {
-    console.error('Fetch ledger error:', stubError)
-    return { entries: [], metrics: { totalStubs: 0, claimedCount: 0, activeCampaigns: 0 } }
-  }
-
-  // 2. Fetch associated disaster events
-  const disasterIds = [...new Set(stubs.map((s: any) => s.disaster_event_id))]
-  let disasterMap: Record<string, { name: string; system_code: string }> = {}
-
-  if (disasterIds.length > 0) {
-    const { data: disasters } = await supabase
-      .from('disaster_events')
-      .select('id, name, system_code')
-      .in('id', disasterIds)
-
-    if (disasters) {
-      disasterMap = Object.fromEntries(
-        disasters.map((d: any) => [d.id, { name: d.name, system_code: d.system_code }])
-      )
-    }
-  }
-
-  // 3. Fetch beneficiary display info (no PII)
-  const beneficiaryIds = [...new Set(stubs.map((s: any) => s.beneficiary_uuid))]
-  let beneficiaryMap: Record<string, string> = {}
-
-  if (beneficiaryIds.length > 0) {
-    const { data: beneficiaries } = await supabase
-      .from('beneficiaries')
-      .select('system_uuid, general_demographics')
-      .in('system_uuid', beneficiaryIds)
-
-    if (beneficiaries) {
-      beneficiaryMap = Object.fromEntries(
-        beneficiaries.map((b: any) => {
-          const demo = (b.general_demographics as Record<string, unknown>) ?? {}
-          const display = (demo.display_name as string) ?? b.system_uuid.slice(0, 8) + '...'
-          return [b.system_uuid, display]
-        })
-      )
-    }
-  }
-
-  // 4. Build ledger entries
-  const entries: LedgerEntry[] = stubs.map((s: any) => {
-    const disaster = disasterMap[s.disaster_event_id] ?? { name: 'Unknown', system_code: '???' }
+  if (!BLOCKFROST_KEY || !policyId) {
+    console.warn(
+      !BLOCKFROST_KEY
+        ? 'BLOCKFROST_API_KEY not set'
+        : 'SYSTEM_POLICY_ID not set',
+      '— blockchain ledger unavailable'
+    )
     return {
-      id: s.id,
-      beneficiaryId: s.beneficiary_uuid.slice(0, 8) + '...',
-      beneficiaryDisplay: beneficiaryMap[s.beneficiary_uuid] ?? 'Unknown',
-      disasterCode: disaster.system_code,
-      disasterName: disaster.name,
-      aidType: s.aid_type,
-      agency: s.agency,
-      claimed: s.claimed,
-      claimedAt: s.claimed_at,
-      createdAt: s.created_at,
+      entries: [],
+      metrics: { totalAssets: 0, policyId: policyId || 'N/A' },
+      network: 'Unknown',
+      explorerUrl: '',
+      source: 'unavailable',
     }
-  })
+  }
 
-  // 5. Aggregate metrics
-  const claimedCount = stubs.filter((s: any) => s.claimed).length
+  try {
+    const { fetchBlockchainLedger, getNetworkName, getExplorerBaseUrl } =
+      await import('@/lib/blockchain/fetchLedger.js')
 
-  const { count: activeCampaigns } = await supabase
-    .from('disaster_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', 'ACTIVE')
+    const ledger = await fetchBlockchainLedger(policyId)
 
-  return {
-    entries,
-    metrics: {
-      totalStubs: stubs.length,
-      claimedCount,
-      activeCampaigns: activeCampaigns ?? 0,
-    },
+    const entries: LedgerEntry[] = (ledger.entries || []).map((e: any) => ({
+      id: e.id,
+      tokenName: e.tokenName || e.assetName || 'Claim Token',
+      assetFingerprint: e.fingerprint || '',
+      disasterCode: e.disasterCode,
+      aidType: e.aidType,
+      agency: e.agency,
+      region: e.region,
+      mintTxHash: e.mintTxHash,
+      mintedAt: e.timestamp || new Date().toISOString(),
+      quantity: e.quantity,
+    }))
+
+    return {
+      entries,
+      metrics: {
+        totalAssets: ledger.metrics.totalAssets,
+        policyId,
+      },
+      network: getNetworkName(),
+      explorerUrl: getExplorerBaseUrl(),
+      source: 'blockchain',
+    }
+  } catch (error: any) {
+    console.error('Blockchain ledger fetch error:', error.message)
+    return {
+      entries: [],
+      metrics: { totalAssets: 0, policyId },
+      network: 'Unknown',
+      explorerUrl: '',
+      source: 'unavailable',
+    }
   }
 }
