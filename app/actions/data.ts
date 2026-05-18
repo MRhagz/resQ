@@ -73,12 +73,12 @@ export async function createDisaster(formData: FormData) {
 
   const supabase = await createClient()
 
-  const { error } = await supabase.from('disaster_events').insert({
+  const { data, error } = await supabase.from('disaster_events').insert({
     system_code: code,
     name: name,
     status: 'ACTIVE',
     allowed_regions: [region],
-  })
+  }).select()
 
   if (error) {
     console.error('Create disaster error:', error)
@@ -86,5 +86,6 @@ export async function createDisaster(formData: FormData) {
   }
 
   revalidatePath('/admin/dashboard')
-  return { status: 'success', message: `Deployed "${name}" as ${code}` }
+  const newDisaster = data?.[0]
+  return { status: 'success', message: `Deployed "${name}" as ${code}`, disaster: newDisaster }
 }

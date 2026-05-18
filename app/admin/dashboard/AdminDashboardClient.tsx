@@ -32,6 +32,8 @@ interface Props {
   claimStubs: ClaimStub[]
 }
 
+
+
 export default function AdminDashboardClient({ disasters: initialDisasters, beneficiaries, claimStubs }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('disasters')
   const [disasters, setDisasters] = useState<DisasterEvent[]>(initialDisasters)
@@ -40,6 +42,10 @@ export default function AdminDashboardClient({ disasters: initialDisasters, bene
     setDisasters((prev) =>
       prev.map((d) => (d.id === id ? { ...d, status: 'CLOSED' as const } : d))
     )
+  }
+
+  const handleDisasterCreated = (newDisaster: DisasterEvent) => {
+    setDisasters((prev) => [newDisaster, ...prev])
   }
 
   return (
@@ -106,7 +112,7 @@ export default function AdminDashboardClient({ disasters: initialDisasters, bene
         <main className="flex-1 px-4 sm:px-8 py-8">
           <div className="max-w-7xl mx-auto">
             {activeTab === 'disasters' && (
-              <DisastersTab disasters={disasters} onClose={handleCloseDisaster} />
+              <DisastersTab disasters={disasters} onClose={handleCloseDisaster} onDisasterCreated={handleDisasterCreated} />
             )}
 
             {activeTab === 'tokens' && <TokenDistributionClient beneficiaries={beneficiaries} disasters={disasters} initialStubs={claimStubs} />}
@@ -159,9 +165,11 @@ function TabButton({
 function DisastersTab({
   disasters,
   onClose,
+  onDisasterCreated,
 }: {
   disasters: DisasterEvent[]
   onClose: (id: string) => void
+  onDisasterCreated: (disaster: DisasterEvent) => void
 }) {
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-PH', {
@@ -175,7 +183,7 @@ function DisastersTab({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Left: Create Form */}
       <div className="lg:col-span-1">
-        <CreateDisasterForm />
+        <CreateDisasterForm onSuccess={onDisasterCreated} />
       </div>
 
       {/* Right: Disaster Ledger */}
