@@ -89,7 +89,7 @@ export default function RegisterScanClient() {
         <Navbar role="relief_worker" />
 
         {/* Header */}
-        <header className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] backdrop-blur-xl bg-black/10">
+        <header className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-white/[0.06] backdrop-blur-xl bg-black/10">
           <button onClick={() => router.push('/worker/dashboard')}
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,7 +101,7 @@ export default function RegisterScanClient() {
             <span className="w-2 h-2 bg-teal-400 rounded-full animate-pulse" />
             <span className="text-xs font-medium text-teal-400">Registration Mode</span>
           </div>
-          <div className="text-right">
+          <div className="hidden sm:block text-right">
             <p className="text-[10px] text-slate-500 uppercase tracking-wider">Mode</p>
             <p className="text-xs text-white font-medium">Beneficiary Registration</p>
           </div>
@@ -219,7 +219,7 @@ export default function RegisterScanClient() {
                 </div>
 
                 {/* Region & Barangay selector */}
-                <div className="mb-4 grid grid-cols-2 gap-3">
+                <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                       Assign Region

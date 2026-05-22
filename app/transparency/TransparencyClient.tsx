@@ -88,14 +88,14 @@ export default function TransparencyClient({ ledgerData }: { ledgerData: LedgerD
                 </div>
                 <span className="text-xl font-bold text-white tracking-tight">ResQ</span>
               </Link>
-              <div className="flex items-center gap-3 sm:gap-5">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+              <div className="flex items-center gap-2 sm:gap-5">
+                <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                   <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                   <span className="text-[10px] font-medium text-emerald-300 tracking-wide uppercase">Public Access</span>
                 </div>
-                <Link href="/login" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.08] border border-white/[0.1] text-white text-sm font-semibold hover:bg-white/[0.15] hover:border-white/[0.2] transition-all duration-200 backdrop-blur-sm shadow-lg shadow-black/10">
+                <Link href="/login" className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-white/[0.08] border border-white/[0.1] text-white text-sm font-semibold hover:bg-white/[0.15] hover:border-white/[0.2] transition-all duration-200 backdrop-blur-sm shadow-lg shadow-black/10">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
-                  Staff Portal
+                  <span className="hidden sm:inline">Staff Portal</span>
                 </Link>
               </div>
             </div>
@@ -103,14 +103,14 @@ export default function TransparencyClient({ ledgerData }: { ledgerData: LedgerD
         </nav>
 
         {/* Header */}
-        <header className="px-4 sm:px-8 py-6 border-b border-white/[0.06] backdrop-blur-xl bg-black/10">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Public Transparency Portal</h1>
-              <p className="text-sm text-slate-500 mt-1">Verify aid distribution and check beneficiary eligibility</p>
+        <header className="px-4 sm:px-8 py-4 sm:py-6 border-b border-white/[0.06] backdrop-blur-xl bg-black/10">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white tracking-tight">Public Transparency Portal</h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">Verify aid distribution and check beneficiary eligibility</p>
             </div>
-            <nav className="flex bg-white/[0.04] rounded-xl border border-white/[0.08] p-1">
-              <TabBtn active={activeTab==='ledger'} onClick={()=>setActiveTab('ledger')} label="Distribution Ledger" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} />
+            <nav className="flex w-full sm:w-auto bg-white/[0.04] rounded-xl border border-white/[0.08] p-1">
+              <TabBtn active={activeTab==='ledger'} onClick={()=>setActiveTab('ledger')} label="Ledger" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} />
               <TabBtn active={activeTab==='lookup'} onClick={()=>{setActiveTab('lookup');resetLookup()}} label="My Tokens" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9a3 3 0 11-6 0 3 3 0 016 0zm-3 9c-4 0-7-1.79-7-4v-1h14v1c0 2.21-3 4-7 4z" /></svg>} />
             </nav>
           </div>
@@ -133,10 +133,10 @@ export default function TransparencyClient({ ledgerData }: { ledgerData: LedgerD
                   )}
                 </div>
                 {/* Metrics */}
-                <div className="grid gap-4 md:grid-cols-3">
-                  <MetricCard title="Cardano Network" icon="⚡" value={<span className="flex items-center gap-2"><span className={`w-3 h-3 rounded-full ${ledgerData.source === 'blockchain' ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500'}`} />{ledgerData.source === 'blockchain' ? `${ledgerData.network} Connected` : 'Awaiting Connection'}</span>} color={ledgerData.source === 'blockchain' ? 'emerald' : 'blue'} />
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+                  <MetricCard title="Cardano Network" icon="⚡" value={<span className="flex items-center gap-2"><span className={`w-3 h-3 rounded-full ${ledgerData.source === 'blockchain' ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500'}`} /><span className="text-sm sm:text-base">{ledgerData.source === 'blockchain' ? `${ledgerData.network} Connected` : 'Awaiting Connection'}</span></span>} color={ledgerData.source === 'blockchain' ? 'emerald' : 'blue'} />
                   <MetricCard title="On-Chain Tokens" icon="📋" value={<span className="text-white">{ledgerData.metrics.totalAssets}</span>} color="white" />
-                  <MetricCard title="Policy ID" icon="🔑" value={<span className="text-[11px] font-mono text-slate-400 truncate">{ledgerData.metrics.policyId !== 'N/A' ? ledgerData.metrics.policyId.slice(0, 16) + '…' : '—'}</span>} color="white" />
+                  <MetricCard title="Policy ID" icon="🔑" value={<span className="text-[10px] sm:text-[11px] font-mono text-slate-400 truncate block max-w-full">{ledgerData.metrics.policyId !== 'N/A' ? ledgerData.metrics.policyId.slice(0, 16) + '…' : '—'}</span>} color="white" />
                 </div>
                 {/* Table */}
                 <div className="rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] overflow-hidden">
@@ -318,8 +318,8 @@ export default function TransparencyClient({ ledgerData }: { ledgerData: LedgerD
                               <p className="text-[10px] text-emerald-400/80">Identity found in the system</p>
                             </div>
                           </div>
-                          <div className="p-5 grid grid-cols-3 gap-4">
-                            <div><p className="text-[10px] text-slate-500 uppercase tracking-wider">System ID</p><p className="text-xs text-white font-mono mt-1">{result.beneficiary.systemId.slice(0,8)}...</p></div>
+                          <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                            <div><p className="text-[10px] text-slate-500 uppercase tracking-wider">System ID</p><p className="text-xs text-white font-mono mt-1 truncate">{result.beneficiary.systemId.slice(0,8)}...</p></div>
                             <div><p className="text-[10px] text-slate-500 uppercase tracking-wider">Region</p><p className="text-xs text-white font-medium mt-1">{result.beneficiary.region}</p></div>
                             <div><p className="text-[10px] text-slate-500 uppercase tracking-wider">Registered</p><p className="text-xs text-white font-medium mt-1">{fmt(result.beneficiary.registeredAt)}</p></div>
                           </div>
@@ -402,7 +402,7 @@ export default function TransparencyClient({ ledgerData }: { ledgerData: LedgerD
 
 function TabBtn({ active, onClick, label, icon }: { active: boolean; onClick: () => void; label: string; icon: React.ReactNode }) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 ${active ? 'bg-white/[0.1] text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>
+    <button onClick={onClick} className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 ${active ? 'bg-white/[0.1] text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>
       {icon}{label}
     </button>
   )
