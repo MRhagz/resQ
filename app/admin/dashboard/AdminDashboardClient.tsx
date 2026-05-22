@@ -17,7 +17,7 @@
  * searchParams instead.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
 import CreateDisasterForm from './CreateDisasterForm'
 
@@ -190,6 +190,11 @@ function DisastersTab({
     })
   }
 
+  // Snapshot "now" only on the client to avoid SSR/hydration mismatch
+  const [now, setNow] = useState<Date | null>(null)
+  useEffect(() => { setNow(new Date()) }, [])
+  const isExpired = (endsAt: string) => now ? new Date(endsAt) <= now : false
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
       {/* Left: Create Form */}
@@ -244,12 +249,12 @@ function DisastersTab({
                     <td className="p-3 text-xs text-slate-400 hidden lg:table-cell">
                       {d.allowed_regions.join(', ')}
                     </td>
-                    <td className="p-3 text-xs text-slate-500 hidden md:table-cell">
+                    <td className="p-3 text-xs text-slate-500 hidden md:table-cell" suppressHydrationWarning>
                       {formatDateTime(d.starts_at)}
                     </td>
-                    <td className="p-3 text-xs hidden md:table-cell">
+                    <td className="p-3 text-xs hidden md:table-cell" suppressHydrationWarning>
                       {d.ends_at ? (
-                        <span className={new Date(d.ends_at) <= new Date() ? 'text-red-400' : 'text-slate-500'}>
+                        <span className={isExpired(d.ends_at) ? 'text-red-400' : 'text-slate-500'}>
                           {formatDateTime(d.ends_at)}
                         </span>
                       ) : (
