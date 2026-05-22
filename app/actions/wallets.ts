@@ -3,19 +3,21 @@
 import { createClient } from '@/utils/supabase/server'
 import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
+import { processBeneficiaryBlockchainIntegration } from '@/lib/blockchain/beneficiaryIntegration.js'
 
 /**
  * ONSITE BENEFICIARY REGISTRATION — Scan QR → Register → Create Wallet
  * 
  * Called by relief workers scanning PhilSys QR codes in the field.
- * Registers the beneficiary in the database, effectively creating their
- * "wallet" (their system_uuid in the beneficiaries table).
+ * Registers the beneficiary in the database and triggers background
+ * blockchain integration (wallet derivation + Identity NFT minting).
  *
  * Flow:
  *   1. Worker scans PhilSys QR → extracts national ID
  *   2. Server hashes the ID (zero-PII storage)
  *   3. Inserts into beneficiaries table with ONSITE_STAFF source
  *   4. Returns the system_uuid (wallet ID) on success
+ *   5. Background: Derives custodial wallet + mints Identity NFT
  */
 
 interface RegistrationPayload {
@@ -67,7 +69,7 @@ export async function registerBeneficiaryOnsite(payload: RegistrationPayload) {
   // Store only first initial + last name for display (not full PII)
   if (payload.fullName) demographics.display_name = payload.fullName
 
-  // 5. Insert beneficiary — their system_uuid IS their wallet
+  // 5. Insert beneficiary
   const { data: beneficiary, error } = await supabase
     .from('beneficiaries')
     .insert({
@@ -75,7 +77,7 @@ export async function registerBeneficiaryOnsite(payload: RegistrationPayload) {
       registration_source: 'ONSITE_STAFF',
       general_demographics: demographics,
     })
-    .select('system_uuid, created_at')
+    .select('system_uuid, wallet_index, created_at')
     .single()
 
   if (error) {
@@ -83,7 +85,7 @@ export async function registerBeneficiaryOnsite(payload: RegistrationPayload) {
       // Already registered — fetch existing wallet
       const { data: existing } = await supabase
         .from('beneficiaries')
-        .select('system_uuid, created_at')
+        .select('system_uuid, wallet_address, created_at')
         .eq('id_hash', idHash)
         .single()
 
@@ -91,6 +93,7 @@ export async function registerBeneficiaryOnsite(payload: RegistrationPayload) {
         status: 'exists',
         message: 'This beneficiary is already registered in the system.',
         walletId: existing?.system_uuid ?? null,
+        walletAddress: existing?.wallet_address ?? null,
         registeredAt: existing?.created_at ?? null,
       }
     }
@@ -98,11 +101,20 @@ export async function registerBeneficiaryOnsite(payload: RegistrationPayload) {
     return { status: 'error', message: error.message }
   }
 
+  // 6. Fire-and-forget: Derive wallet + mint Identity NFT in background
+  if (beneficiary?.wallet_index) {
+    processBeneficiaryBlockchainIntegration(
+      beneficiary.system_uuid,
+      beneficiary.wallet_index,
+      demographics
+    ).catch(err => console.error('Background beneficiary integration error:', err))
+  }
+
   revalidatePath('/worker/dashboard')
 
   return {
     status: 'success',
-    message: 'Beneficiary registered — wallet created successfully.',
+    message: 'Beneficiary registered — wallet creation in progress.',
     walletId: beneficiary.system_uuid,
     registeredAt: beneficiary.created_at,
   }

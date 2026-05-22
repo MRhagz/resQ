@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: [
+    '@emurgo/cardano-serialization-lib-nodejs',
+  ],
 };
 
 export default nextConfig;

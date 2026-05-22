@@ -2,10 +2,18 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { mintClaimStubs } from '@/lib/blockchain/mintClaimStubs.js'
+import { systemWallet, getCustodialAddress } from '@/lib/blockchain/wallet.js'
 
 /**
  * CLAIM STUBS — Admin creates stubs for eligible beneficiaries.
  * Each stub = one "token" that a worker can redeem at a distribution point.
+ *
+ * Flow:
+ *   1. Admin selects beneficiaries + disaster + aid type
+ *   2. System inserts claim_stub rows into the database (source of truth)
+ *   3. System mints corresponding on-chain tokens (fire-and-forget)
+ *   4. Tokens are minted to the system wallet — metadata proves eligibility
  */
 
 interface ClaimStubPayload {
@@ -39,6 +47,17 @@ export async function createClaimStubs(payload: ClaimStubPayload) {
     return { status: 'error', message: 'Missing required fields.' }
   }
 
+  // Fetch the disaster's system_code for on-chain asset naming
+  const { data: disaster } = await supabase
+    .from('disaster_events')
+    .select('system_code')
+    .eq('id', payload.disasterEventId)
+    .single()
+
+  if (!disaster) {
+    return { status: 'error', message: 'Disaster event not found.' }
+  }
+
   const rows = payload.beneficiaryIds.map((uuid) => ({
     beneficiary_uuid: uuid,
     disaster_event_id: payload.disasterEventId,
@@ -61,11 +80,80 @@ export async function createClaimStubs(payload: ClaimStubPayload) {
     return { status: 'error', message: error.message }
   }
 
+  // ── Fire-and-forget: Mint on-chain claim tokens ──────────────────────
+  // Tokens are minted to the system wallet (custodial model).
+  // The token metadata embeds disaster code + aid type + agency as proof.
+  // DB remains the source of truth; on-chain is the audit trail.
+  if (data && data.length > 0) {
+    mintClaimStubsInBackground(data, disaster.system_code, payload.aidType, agency)
+      .catch(err => console.error('Background claim stub minting error:', err))
+  }
+
   revalidatePath('/admin/dashboard')
   return {
     status: 'success',
     message: `Created ${data?.length ?? 0} claim stub(s) via ${agency}. Beneficiaries can now receive ${payload.aidType} at distribution points.`,
     count: data?.length ?? 0,
+  }
+}
+
+const BATCH_SIZE = 20;
+
+/**
+ * Background minting — runs after the HTTP response is sent.
+ * Mints claim tokens to the system wallet in sequential batches of 20 to respect Cardano transaction size limits and avoid UTxO collision.
+ * On-chain metadata is what proves which beneficiary the token is for.
+ */
+async function mintClaimStubsInBackground(
+  stubs: { id: string; beneficiary_uuid: string }[],
+  disasterCode: string,
+  aidType: string,
+  agency: string
+) {
+  try {
+    // All tokens go to the system wallet (custodial — beneficiaries have no wallets)
+    await systemWallet.init()
+    const systemAddress = await systemWallet.getChangeAddress()
+
+    const campaign = {
+      disasterCode,
+      aidType,
+      agency,
+    }
+
+    // Initialize Supabase direct client for background database updates
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+    const { createClient: createDirectClient } = await import('@supabase/supabase-js')
+    const directSupabase = createDirectClient(supabaseUrl, supabaseKey)
+
+    // Process stubs sequentially in batches to avoid UTxO collisions and tx size limits
+    for (let i = 0; i < stubs.length; i += BATCH_SIZE) {
+      const batch = stubs.slice(i, i + BATCH_SIZE)
+      const batchRecipients = batch.map(() => ({
+        walletAddress: systemAddress
+      }))
+
+      try {
+        console.log(`[Blockchain] Minting batch of ${batch.length} claim stub token(s) (indexes ${i} to ${i + batch.length - 1})...`)
+        const txHash = await mintClaimStubs(batchRecipients, campaign)
+        console.log(`[Blockchain] ✅ Minted batch. TX: ${txHash}`)
+
+        // Persist the mint tx hash back to the DB for audit trail of this specific batch
+        const batchIds = batch.map(s => s.id)
+        await directSupabase
+          .from('claim_stubs')
+          .update({ mint_tx_hash: txHash })
+          .in('id', batchIds)
+
+      } catch (batchErr) {
+        console.error(`[Blockchain] Batch minting failed for indexes ${i} to ${i + batch.length - 1}:`, batchErr)
+        // Continue to the next batch so that a single failed transaction does not block other distributions
+      }
+    }
+
+  } catch (err) {
+    console.error('[Blockchain] Claim stub minting setup failed:', err)
   }
 }
 

@@ -32,6 +32,8 @@ interface Props {
   claimStubs: ClaimStub[]
 }
 
+
+
 export default function AdminDashboardClient({ disasters: initialDisasters, beneficiaries, claimStubs }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('disasters')
   const [disasters, setDisasters] = useState<DisasterEvent[]>(initialDisasters)
@@ -40,6 +42,10 @@ export default function AdminDashboardClient({ disasters: initialDisasters, bene
     setDisasters((prev) =>
       prev.map((d) => (d.id === id ? { ...d, status: 'CLOSED' as const } : d))
     )
+  }
+
+  const handleDisasterCreated = (newDisaster: DisasterEvent) => {
+    setDisasters((prev) => [newDisaster, ...prev])
   }
 
   return (
@@ -64,19 +70,19 @@ export default function AdminDashboardClient({ disasters: initialDisasters, bene
         <Navbar role="super_admin" />
 
         {/* Page Header with Tabs */}
-        <header className="px-4 sm:px-8 py-6 border-b border-white/[0.06] backdrop-blur-xl bg-black/10">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+        <header className="px-4 sm:px-8 py-4 sm:py-6 border-b border-white/[0.06] backdrop-blur-xl bg-black/10">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white tracking-tight">
                 Command Center
               </h1>
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
                 Manage disasters, beneficiaries, and token minting
               </p>
             </div>
 
             {/* Tab Navigation */}
-            <nav className="flex bg-white/[0.04] rounded-xl border border-white/[0.08] p-1">
+            <nav className="flex w-full sm:w-auto bg-white/[0.04] rounded-xl border border-white/[0.08] p-1">
               <TabButton
                 active={activeTab === 'disasters'}
                 onClick={() => setActiveTab('disasters')}
@@ -96,7 +102,7 @@ export default function AdminDashboardClient({ disasters: initialDisasters, bene
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 }
-                label="Token Distribution"
+                label="Tokens"
               />
             </nav>
           </div>
@@ -106,7 +112,7 @@ export default function AdminDashboardClient({ disasters: initialDisasters, bene
         <main className="flex-1 px-4 sm:px-8 py-8">
           <div className="max-w-7xl mx-auto">
             {activeTab === 'disasters' && (
-              <DisastersTab disasters={disasters} onClose={handleCloseDisaster} />
+              <DisastersTab disasters={disasters} onClose={handleCloseDisaster} onDisasterCreated={handleDisasterCreated} />
             )}
 
             {activeTab === 'tokens' && <TokenDistributionClient beneficiaries={beneficiaries} disasters={disasters} initialStubs={claimStubs} />}
@@ -141,7 +147,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 ${
+      className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 ${
         active
           ? 'bg-white/[0.1] text-white shadow-sm'
           : 'text-slate-500 hover:text-slate-300'
@@ -159,9 +165,11 @@ function TabButton({
 function DisastersTab({
   disasters,
   onClose,
+  onDisasterCreated,
 }: {
   disasters: DisasterEvent[]
   onClose: (id: string) => void
+  onDisasterCreated: (disaster: DisasterEvent) => void
 }) {
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-PH', {
@@ -172,10 +180,10 @@ function DisastersTab({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
       {/* Left: Create Form */}
       <div className="lg:col-span-1">
-        <CreateDisasterForm />
+        <CreateDisasterForm onSuccess={onDisasterCreated} />
       </div>
 
       {/* Right: Disaster Ledger */}
