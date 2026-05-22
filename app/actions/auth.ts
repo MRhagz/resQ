@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
+import { processWorkerBlockchainIntegration } from '@/lib/blockchain/workerIntegration.js'
 
 export async function login(prevState: any, formData: FormData) {
   const email = formData.get('email') as string
@@ -27,7 +28,7 @@ export async function login(prevState: any, formData: FormData) {
       redirect('/worker/dashboard')
     }
   }
-  
+
   redirect('/')
 }
 
@@ -36,7 +37,7 @@ export async function signup(prevState: any, formData: FormData) {
   const password = formData.get('password') as string
   const role = formData.get('role') as string
   const agency = formData.get('agency') as string | null
-  
+
   const supabase = await createClient()
 
   const { data, error } = await supabase.auth.signUp({
@@ -59,14 +60,24 @@ export async function signup(prevState: any, formData: FormData) {
       profileData.agency = agency
     }
 
-    const { error: profileError } = await supabase.from('staff_profiles').insert(profileData)
+    const { data: profileResult, error: profileError } = await supabase
+      .from('staff_profiles')
+      .insert(profileData)
+      .select('wallet_index')
+      .single()
 
     if (profileError) {
       console.error('Profile Creation Error:', profileError)
-      return { 
-        status: 'error', 
-        message: 'User created, but failed to create staff profile. Check RLS policies: ' + profileError.message 
+      return {
+        status: 'error',
+        message: 'User created, but failed to create staff profile. Check RLS policies: ' + profileError.message
       }
+    }
+
+    if (profileResult?.wallet_index) {
+      // Fire-and-forget: Create wallet and mint Identity NFT in the background
+      processWorkerBlockchainIntegration(data.user.id, profileResult.wallet_index)
+        .catch(err => console.error("Background worker integration error:", err))
     }
   }
 
