@@ -1,12 +1,20 @@
 "use client"
 
-import { useActionState, useState } from 'react'
+import { useActionState, useState, useEffect } from 'react'
 import { login, signup } from '../actions/auth'
 import Link from 'next/link'
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true)
   const [selectedRole, setSelectedRole] = useState('relief_worker')
+  const [loginError, setLoginError] = useState<string | null>(null)
+  const [signupError, setSignupError] = useState<string | null>(null)
+
+  // Clear errors when page loads or when navigating back to this page
+  useEffect(() => {
+    setLoginError(null)
+    setSignupError(null)
+  }, [])
 
   // Setup action states for both login and signup
   const [loginState, loginAction, isLoginPending] = useActionState(login, null)
@@ -15,6 +23,27 @@ export default function LoginPage() {
   const state = isLogin ? loginState : signupState
   const isPending = isLogin ? isLoginPending : isSignupPending
   const currentAction = isLogin ? loginAction : signupAction
+
+  // Update custom error state when action state changes
+  if (isLogin && loginState?.status === 'error') {
+    if (loginError !== loginState.message) {
+      setLoginError(loginState.message)
+    }
+  }
+  if (!isLogin && signupState?.status === 'error') {
+    if (signupError !== signupState.message) {
+      setSignupError(signupState.message)
+    }
+  }
+
+  const handleTabSwitch = (newIsLogin: boolean) => {
+    setIsLogin(newIsLogin)
+    // Clear errors when switching tabs
+    setLoginError(null)
+    setSignupError(null)
+  }
+
+  const displayError = isLogin ? loginError : signupError
 
   return (
     <main className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
@@ -166,21 +195,23 @@ export default function LoginPage() {
               </span>
             </button>
 
-            {/* Status message */}
-            {state?.message && (
-              <div className={`flex items-center gap-2.5 p-3.5 rounded-xl text-sm font-medium border ${
-                state.status === 'success'
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                  : 'bg-red-500/10 border-red-500/20 text-red-400'
-              }`}>
+            {/* Status message — only show success here, errors displayed above */}
+            {state?.status === 'success' && state?.message && (
+              <div className="flex items-center gap-2.5 p-3.5 rounded-xl text-sm font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={
-                    state.status === 'success'
-                      ? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      : "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  } />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 {state.message}
+              </div>
+            )}
+
+            {/* Error message — separate from success */}
+            {displayError && (
+              <div className="flex items-center gap-2.5 p-3.5 rounded-xl text-sm font-medium bg-red-500/10 border border-red-500/20 text-red-400">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {displayError}
               </div>
             )}
           </form>
@@ -188,7 +219,7 @@ export default function LoginPage() {
           {/* Toggle */}
           <div className="px-6 py-4 border-t border-white/[0.06] text-center">
             <button
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => handleTabSwitch(!isLogin)}
               className="text-sm text-slate-500 hover:text-blue-400 transition-colors"
             >
               {isLogin ? (

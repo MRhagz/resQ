@@ -18,8 +18,13 @@
 
 import { useState } from 'react'
 import { createDisaster } from '@/app/actions/data'
+import { type DisasterEvent } from './mock-data'
 
-export default function CreateDisasterForm() {
+interface Props {
+  onSuccess?: (disaster: DisasterEvent) => void
+}
+
+export default function CreateDisasterForm({ onSuccess }: Props) {
   const [isPending, setIsPending] = useState(false)
   const [result, setResult] = useState<{ status: string; message: string } | null>(null)
   const REGIONS = [
@@ -41,6 +46,10 @@ export default function CreateDisasterForm() {
       setResult({ status: res.status, message: res.message })
       if (res.status === 'success') {
         form.reset()
+        // Call the parent callback to update dashboard
+        if (onSuccess && res.disaster) {
+          onSuccess(res.disaster as DisasterEvent)
+        }
       }
     } catch (err: any) {
       console.error(err)
