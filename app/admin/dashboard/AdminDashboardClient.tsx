@@ -219,9 +219,9 @@ function DisastersTab({
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Code</th>
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Name</th>
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Regions</th>
+                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Regions</th>
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Start</th>
-                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">End</th>
+                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">End</th>
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
@@ -241,13 +241,13 @@ function DisastersTab({
                         {d.status}
                       </span>
                     </td>
-                    <td className="p-3 text-xs text-slate-400 hidden sm:table-cell">
+                    <td className="p-3 text-xs text-slate-400 hidden lg:table-cell">
                       {d.allowed_regions.join(', ')}
                     </td>
                     <td className="p-3 text-xs text-slate-500 hidden md:table-cell">
                       {formatDateTime(d.starts_at)}
                     </td>
-                    <td className="p-3 text-xs hidden lg:table-cell">
+                    <td className="p-3 text-xs hidden md:table-cell">
                       {d.ends_at ? (
                         <span className={new Date(d.ends_at) <= new Date() ? 'text-red-400' : 'text-slate-500'}>
                           {formatDateTime(d.ends_at)}
