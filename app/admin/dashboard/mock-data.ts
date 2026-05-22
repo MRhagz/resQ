@@ -11,8 +11,11 @@ export interface DisasterEvent {
   name: string
   status: 'ACTIVE' | 'CLOSED'
   allowed_regions: string[]
+  starts_at: string | null
+  ends_at: string | null
   created_at: string
 }
+
 
 export interface Beneficiary {
   id: string

@@ -179,6 +179,17 @@ function DisastersTab({
     })
   }
 
+  const formatDateTime = (dateStr: string | null) => {
+    if (!dateStr) return '—'
+    return new Date(dateStr).toLocaleString('en-PH', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
       {/* Left: Create Form */}
@@ -209,7 +220,8 @@ function DisastersTab({
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Name</th>
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Regions</th>
-                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Created</th>
+                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Start</th>
+                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">End</th>
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
@@ -233,7 +245,16 @@ function DisastersTab({
                       {d.allowed_regions.join(', ')}
                     </td>
                     <td className="p-3 text-xs text-slate-500 hidden md:table-cell">
-                      {formatDate(d.created_at)}
+                      {formatDateTime(d.starts_at)}
+                    </td>
+                    <td className="p-3 text-xs hidden lg:table-cell">
+                      {d.ends_at ? (
+                        <span className={new Date(d.ends_at) <= new Date() ? 'text-red-400' : 'text-slate-500'}>
+                          {formatDateTime(d.ends_at)}
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600/70">Open-ended</span>
+                      )}
                     </td>
                     <td className="p-3">
                       {d.status === 'ACTIVE' && (
