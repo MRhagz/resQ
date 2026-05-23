@@ -17,7 +17,7 @@
  * searchParams instead.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Navbar from '@/components/Navbar'
 import CreateDisasterForm from './CreateDisasterForm'
 
@@ -38,11 +38,11 @@ export default function AdminDashboardClient({ disasters: initialDisasters, bene
   const [activeTab, setActiveTab] = useState<Tab>('disasters')
   const [disasters, setDisasters] = useState<DisasterEvent[]>(initialDisasters)
 
-  const handleCloseDisaster = (id: string) => {
+  const handleCloseDisaster = useCallback((id: string) => {
     setDisasters((prev) =>
       prev.map((d) => (d.id === id ? { ...d, status: 'CLOSED' as const } : d))
     )
-  }
+  }, [])
 
   const handleDisasterCreated = (newDisaster: DisasterEvent) => {
     setDisasters((prev) => [newDisaster, ...prev])
@@ -148,8 +148,8 @@ function TabButton({
     <button
       onClick={onClick}
       className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 ${active
-          ? 'bg-white/[0.1] text-white shadow-sm'
-          : 'text-slate-500 hover:text-slate-300'
+        ? 'bg-white/[0.1] text-white shadow-sm'
+        : 'text-slate-500 hover:text-slate-300'
         }`}
     >
       {icon}
@@ -191,8 +191,31 @@ function DisastersTab({
 
   // Snapshot "now" only on the client to avoid SSR/hydration mismatch
   const [now, setNow] = useState<Date | null>(null)
-  useEffect(() => { setNow(new Date()) }, [])
+  useEffect(() => {
+    setNow(new Date());
+
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => {
+      clearInterval(id);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!now) return;
+
+    disasters.forEach((d) => {
+      const isPast = new Date(d.ends_at ?? '') <= now;
+
+      if (isPast && d.status === 'ACTIVE') {
+        onClose(d.id);
+      }
+    });
+  }, [now, disasters, onClose]);
+
   const isExpired = (endsAt: string) => now ? new Date(endsAt) <= now : false
+
+
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -237,8 +260,8 @@ function DisastersTab({
                     <td className="p-3">
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${d.status === 'ACTIVE'
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : 'bg-slate-500/15 text-slate-400'
+                          ? 'bg-emerald-500/15 text-emerald-400'
+                          : 'bg-slate-500/15 text-slate-400'
                           }`}
                       >
                         {d.status}
