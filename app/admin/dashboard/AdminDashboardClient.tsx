@@ -147,11 +147,10 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 ${
-        active
+      className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 ${active
           ? 'bg-white/[0.1] text-white shadow-sm'
           : 'text-slate-500 hover:text-slate-300'
-      }`}
+        }`}
     >
       {icon}
       {label}
@@ -237,11 +236,10 @@ function DisastersTab({
                     <td className="p-3 text-sm text-white font-medium">{d.name}</td>
                     <td className="p-3">
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          d.status === 'ACTIVE'
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${d.status === 'ACTIVE'
                             ? 'bg-emerald-500/15 text-emerald-400'
                             : 'bg-slate-500/15 text-slate-400'
-                        }`}
+                          }`}
                       >
                         {d.status}
                       </span>
@@ -249,13 +247,13 @@ function DisastersTab({
                     <td className="p-3 text-xs text-slate-400 hidden lg:table-cell">
                       {d.allowed_regions.join(', ')}
                     </td>
-                    <td className="p-3 text-xs text-slate-500 hidden md:table-cell" suppressHydrationWarning>
-                      {formatDateTime(d.starts_at)}
+                    <td className="p-3 text-xs text-slate-500 hidden md:table-cell">
+                      {now ? formatDateTime(d.starts_at) : '-'}
                     </td>
-                    <td className="p-3 text-xs hidden md:table-cell" suppressHydrationWarning>
+                    <td className="p-3 text-xs hidden md:table-cell">
                       {d.ends_at ? (
                         <span className={isExpired(d.ends_at) ? 'text-red-400' : 'text-slate-500'}>
-                          {formatDateTime(d.ends_at)}
+                          {now ? formatDateTime(d.ends_at) : '-'}
                         </span>
                       ) : (
                         <span className="text-emerald-600/70">Open-ended</span>
