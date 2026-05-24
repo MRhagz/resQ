@@ -58,16 +58,7 @@ export async function lookupBeneficiaryTokens(
     if (beneficiary) return await fetchTokenHistory(supabase, beneficiary)
   }
 
-  // Strategy 2: Raw id_hash lookup (seeded/test data)
-  const { data: rawMatch } = await supabase
-    .from('beneficiaries')
-    .select('system_uuid, general_demographics, created_at')
-    .eq('id_hash', trimmedId)
-    .single()
-
-  if (rawMatch) return await fetchTokenHistory(supabase, rawMatch)
-
-  // Strategy 3: Lookup by system_uuid
+  // Strategy 2: Lookup by system_uuid
   const { data: uuidMatch } = await supabase
     .from('beneficiaries')
     .select('system_uuid, general_demographics, created_at')
@@ -75,16 +66,6 @@ export async function lookupBeneficiaryTokens(
     .single()
 
   if (uuidMatch) return await fetchTokenHistory(supabase, uuidMatch)
-
-  // Strategy 4: Partial id_hash match
-  const { data: partialMatches } = await supabase
-    .from('beneficiaries')
-    .select('system_uuid, general_demographics, created_at')
-    .ilike('id_hash', `%${trimmedId}%`)
-    .limit(1)
-    .single()
-
-  if (partialMatches) return await fetchTokenHistory(supabase, partialMatches)
 
   return {
     status: 'not_found',
