@@ -17,7 +17,7 @@
  * searchParams instead.
  */
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Navbar from '@/components/Navbar'
 import CreateDisasterForm from './CreateDisasterForm'
 
@@ -38,11 +38,11 @@ export default function AdminDashboardClient({ disasters: initialDisasters, bene
   const [activeTab, setActiveTab] = useState<Tab>('disasters')
   const [disasters, setDisasters] = useState<DisasterEvent[]>(initialDisasters)
 
-  const handleCloseDisaster = (id: string) => {
+  const handleCloseDisaster = useCallback((id: string) => {
     setDisasters((prev) =>
       prev.map((d) => (d.id === id ? { ...d, status: 'CLOSED' as const } : d))
     )
-  }
+  }, [])
 
   const handleDisasterCreated = (newDisaster: DisasterEvent) => {
     setDisasters((prev) => [newDisaster, ...prev])
@@ -147,11 +147,10 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 ${
-        active
-          ? 'bg-white/[0.1] text-white shadow-sm'
-          : 'text-slate-500 hover:text-slate-300'
-      }`}
+      className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 ${active
+        ? 'bg-white/[0.1] text-white shadow-sm'
+        : 'text-slate-500 hover:text-slate-300'
+        }`}
     >
       {icon}
       {label}
@@ -178,6 +177,45 @@ function DisastersTab({
       day: 'numeric',
     })
   }
+
+  const formatDateTime = (dateStr: string | null) => {
+    if (!dateStr) return '—'
+    return new Date(dateStr).toLocaleString('en-PH', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  // Snapshot "now" only on the client to avoid SSR/hydration mismatch
+  const [now, setNow] = useState<Date | null>(null)
+  useEffect(() => {
+    setNow(new Date());
+
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => {
+      clearInterval(id);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!now) return;
+
+    disasters.forEach((d) => {
+      const isPast = new Date(d.ends_at ?? '') <= now;
+
+      if (isPast && d.status === 'ACTIVE') {
+        onClose(d.id);
+      }
+    });
+  }, [now, disasters, onClose]);
+
+  const isExpired = (endsAt: string) => now ? new Date(endsAt) <= now : false
+
+
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -208,8 +246,9 @@ function DisastersTab({
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Code</th>
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Name</th>
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Regions</th>
-                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Created</th>
+                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Regions</th>
+                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Start</th>
+                  <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">End</th>
                   <th className="p-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
@@ -220,20 +259,28 @@ function DisastersTab({
                     <td className="p-3 text-sm text-white font-medium">{d.name}</td>
                     <td className="p-3">
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          d.status === 'ACTIVE'
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : 'bg-slate-500/15 text-slate-400'
-                        }`}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${d.status === 'ACTIVE'
+                          ? 'bg-emerald-500/15 text-emerald-400'
+                          : 'bg-slate-500/15 text-slate-400'
+                          }`}
                       >
                         {d.status}
                       </span>
                     </td>
-                    <td className="p-3 text-xs text-slate-400 hidden sm:table-cell">
+                    <td className="p-3 text-xs text-slate-400 hidden lg:table-cell">
                       {d.allowed_regions.join(', ')}
                     </td>
                     <td className="p-3 text-xs text-slate-500 hidden md:table-cell">
-                      {formatDate(d.created_at)}
+                      {now ? formatDateTime(d.starts_at) : '-'}
+                    </td>
+                    <td className="p-3 text-xs hidden md:table-cell">
+                      {d.ends_at ? (
+                        <span className={isExpired(d.ends_at) ? 'text-red-400' : 'text-slate-500'}>
+                          {now ? formatDateTime(d.ends_at) : '-'}
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600/70">Open-ended</span>
+                      )}
                     </td>
                     <td className="p-3">
                       {d.status === 'ACTIVE' && (

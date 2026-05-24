@@ -102,6 +102,31 @@ export default function CreateDisasterForm({ onSuccess }: Props) {
           </select>
         </div>
 
+        {/* Campaign Window */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
+              Start Date &amp; Time
+            </label>
+            <input
+              type="datetime-local"
+              name="starts_at"
+              className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] text-sm text-white px-3 py-2.5 outline-none focus:border-blue-500/40 transition-colors [color-scheme:dark]"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
+              End Date &amp; Time <span className="normal-case font-normal text-slate-600">(optional)</span>
+            </label>
+            <input
+              type="datetime-local"
+              name="ends_at"
+              className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] text-sm text-white px-3 py-2.5 outline-none focus:border-blue-500/40 transition-colors [color-scheme:dark]"
+            />
+            <p className="mt-1 text-[10px] text-slate-600">Leave blank for open-ended — event auto-closes on end date</p>
+          </div>
+        </div>
+
         <button
           type="submit"
           disabled={isPending}

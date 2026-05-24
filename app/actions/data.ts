@@ -5,13 +5,22 @@ import { revalidatePath } from 'next/cache'
 
 /**
  * Fetch all disaster events from the database.
+ * Auto-closes any ACTIVE events whose ends_at has already passed.
  */
 export async function fetchDisasters() {
   const supabase = await createClient()
 
+  // Auto-close ACTIVE campaigns whose scheduled end has passed
+  await supabase
+    .from('disaster_events')
+    .update({ status: 'CLOSED' })
+    .eq('status', 'ACTIVE')
+    .not('ends_at', 'is', null)
+    .lte('ends_at', new Date().toISOString())
+
   const { data, error } = await supabase
     .from('disaster_events')
-    .select('id, system_code, name, status, allowed_regions, created_at')
+    .select('id, system_code, name, status, allowed_regions, starts_at, ends_at, created_at')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -57,15 +66,23 @@ export async function fetchBeneficiaries() {
 
 /**
  * Create a new disaster event in the database.
- * Forced recompile.
  */
-
 export async function createDisaster(formData: FormData) {
   const name = formData.get('name') as string
   const region = formData.get('region') as string
+  const startsAtRaw = formData.get('starts_at') as string | null
+  const endsAtRaw = formData.get('ends_at') as string | null
 
   if (!name || !region) {
     return { status: 'error', message: 'Name and Region are required.' }
+  }
+
+  // Convert datetime-local strings to UTC ISO (browser sends YYYY-MM-DDTHH:mm)
+  const startsAt = startsAtRaw ? new Date(startsAtRaw).toISOString() : null
+  const endsAt = endsAtRaw ? new Date(endsAtRaw).toISOString() : null
+
+  if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
+    return { status: 'error', message: 'End date/time must be after the start date/time.' }
   }
 
   const prefix = name.substring(0, 2).toUpperCase()
@@ -75,9 +92,11 @@ export async function createDisaster(formData: FormData) {
 
   const { data, error } = await supabase.from('disaster_events').insert({
     system_code: code,
-    name: name,
+    name,
     status: 'ACTIVE',
     allowed_regions: [region],
+    starts_at: startsAt,
+    ends_at: endsAt,
   }).select()
 
   if (error) {
@@ -89,3 +108,4 @@ export async function createDisaster(formData: FormData) {
   const newDisaster = data?.[0]
   return { status: 'success', message: `Deployed "${name}" as ${code}`, disaster: newDisaster }
 }
+
