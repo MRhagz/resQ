@@ -170,14 +170,6 @@ function DisastersTab({
   onClose: (id: string) => void
   onDisasterCreated: (disaster: DisasterEvent) => void
 }) {
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-PH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
   const formatDateTime = (dateStr: string | null) => {
     if (!dateStr) return '—'
     return new Date(dateStr).toLocaleString('en-PH', {

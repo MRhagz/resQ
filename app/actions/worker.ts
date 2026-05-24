@@ -70,7 +70,7 @@ async function redeemStub(
   workerId: string
 ) {
   // 1. Check if a stub already exists
-  const { data: stub, error: findError } = await supabase
+  const { data: stub } = await supabase
     .from('claim_stubs')
     .select('id, claimed, mint_tx_hash')
     .eq('beneficiary_uuid', beneficiaryUuid)

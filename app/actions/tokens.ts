@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { mintClaimStubs } from '@/lib/blockchain/mintClaimStubs.js'
-import { systemWallet, getCustodialAddress } from '@/lib/blockchain/wallet.js'
+import { systemWallet } from '@/lib/blockchain/wallet.js'
 
 /**
  * CLAIM STUBS — Admin creates stubs for eligible beneficiaries.
