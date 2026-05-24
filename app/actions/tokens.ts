@@ -47,10 +47,10 @@ export async function createClaimStubs(payload: ClaimStubPayload) {
     return { status: 'error', message: 'Missing required fields.' }
   }
 
-  // Fetch the disaster's system_code for on-chain asset naming
+  // Fetch the disaster's system_code, starts_at, and ends_at for on-chain asset naming and policies
   const { data: disaster } = await supabase
     .from('disaster_events')
-    .select('system_code')
+    .select('system_code, starts_at, ends_at')
     .eq('id', payload.disasterEventId)
     .single()
 
@@ -85,7 +85,7 @@ export async function createClaimStubs(payload: ClaimStubPayload) {
   // The token metadata embeds disaster code + aid type + agency as proof.
   // DB remains the source of truth; on-chain is the audit trail.
   if (data && data.length > 0) {
-    mintClaimStubsInBackground(data, disaster.system_code, payload.aidType, agency)
+    mintClaimStubsInBackground(data, disaster.system_code, payload.aidType, agency, disaster.starts_at, disaster.ends_at)
       .catch(err => console.error('Background claim stub minting error:', err))
   }
 
@@ -108,7 +108,9 @@ async function mintClaimStubsInBackground(
   stubs: { id: string; beneficiary_uuid: string }[],
   disasterCode: string,
   aidType: string,
-  agency: string
+  agency: string,
+  startsAt: string | null,
+  endsAt: string | null
 ) {
   try {
     // All tokens go to the system wallet (custodial — beneficiaries have no wallets)
@@ -119,6 +121,8 @@ async function mintClaimStubsInBackground(
       disasterCode,
       aidType,
       agency,
+      startsAt,
+      endsAt,
     }
 
     // Initialize Supabase direct client for background database updates
