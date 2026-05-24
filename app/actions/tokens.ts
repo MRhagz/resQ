@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { mintClaimStubs } from '@/lib/blockchain/mintClaimStubs.js'
-import { systemWallet, getCustodialAddress } from '@/lib/blockchain/wallet.js'
+import { systemWallet } from '@/lib/blockchain/wallet.js'
 
 /**
  * CLAIM STUBS — Admin creates stubs for eligible beneficiaries.
@@ -155,9 +155,7 @@ async function mintClaimStubsInBackground(
       }))
 
       try {
-        console.log(`[Blockchain] Minting batch of ${batch.length} claim stub token(s) (indexes ${i} to ${i + batch.length - 1})...`)
         const txHash = await mintClaimStubs(batchRecipients, campaign)
-        console.log(`[Blockchain] ✅ Minted batch. TX: ${txHash}`)
 
         // Persist the mint tx hash back to the DB for audit trail of this specific batch
         const batchIds = batch.map(s => s.id)
