@@ -4,12 +4,12 @@ import { useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Navbar from '@/components/Navbar'
-import { distributeAid } from '@/app/actions/worker'
+import { distributeAid, endSession } from '@/app/actions/worker'
 import { parsePhilSysQR, type PhilSysData } from '@/utils/philsys'
 
 const QrScanner = dynamic(() => import('@/components/Scanner'), { ssr: false })
 
-type ScanState = 'idle' | 'scanning' | 'processing' | 'found'
+type ScanState = 'idle' | 'scanning' | 'processing' | 'found' | 'confirming' | 'burning' | 'summary'
 
 // Extend PhilSysData with optional photo for display
 interface BeneficiaryInfo extends PhilSysData {
@@ -23,6 +23,7 @@ export default function QRScanClient() {
   const [beneficiary, setBeneficiary] = useState<BeneficiaryInfo | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [result, setResult] = useState<{ status: string; message: string } | null>(null)
+  const [burnResult, setBurnResult] = useState<{ burned: number; total: number; errors: string[] } | null>(null)
 
   // Session params from lock-in
   const sessionDisasterId = searchParams.get('disaster') ?? '1'
@@ -73,6 +74,21 @@ export default function QRScanClient() {
     router.push('/worker/dashboard')
   }
 
+  const handleEndSession = () => {
+    setScanState('confirming')
+  }
+
+  const handleCancelEndSession = () => {
+    setScanState('idle')
+  }
+
+  const handleConfirmBurn = async () => {
+    setScanState('burning')
+    const res = await endSession(sessionDisasterId, sessionAidType)
+    setBurnResult(res)
+    setScanState('summary')
+  }
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
     return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -91,13 +107,13 @@ export default function QRScanClient() {
         {/* Scan Context Header */}
         <header className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] backdrop-blur-xl bg-black/10">
           <button
-            onClick={handleBack}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
+            onClick={handleEndSession}
+            className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors text-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            Back
+            End Session
           </button>
 
           <div className="flex items-center gap-2">
@@ -268,6 +284,136 @@ export default function QRScanClient() {
                 d={result.status === 'success' ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
             </svg>
             {result.message}
+          </div>
+        )}
+
+        {/* End Session Confirmation Modal */}
+        {scanState === 'confirming' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCancelEndSession} />
+            <div className="relative w-full max-w-sm mx-4 rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-white/[0.1] shadow-2xl overflow-hidden">
+              <div className="px-5 py-4 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">End Session?</p>
+                  <p className="text-[10px] text-amber-400/80">This will burn claimed tokens on-chain</p>
+                </div>
+              </div>
+              <div className="p-5">
+                <p className="text-sm text-slate-300 mb-5">
+                  All aid tokens you distributed today will be permanently burned on the Cardano blockchain. This action cannot be undone.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCancelEndSession}
+                    className="flex-1 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-400 text-sm font-semibold hover:bg-white/[0.08] hover:text-white transition-all active:scale-[0.98]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmBurn}
+                    className="flex-[2] py-3 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 text-white text-sm font-bold shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  >
+                    Confirm &amp; Burn Tokens
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Burning Progress Screen */}
+        {scanState === 'burning' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="relative text-center px-6">
+              <svg className="w-12 h-12 text-orange-400 animate-spin mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <p className="text-lg font-bold text-white mb-1">Burning Claimed Tokens</p>
+              <p className="text-sm text-slate-400">Processing multi-sig transactions on Cardano...</p>
+              <p className="text-xs text-slate-500 mt-2">Please do not close this page</p>
+            </div>
+          </div>
+        )}
+
+        {/* Burn Summary Screen */}
+        {scanState === 'summary' && burnResult && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="relative w-full max-w-sm mx-4 rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-white/[0.1] shadow-2xl overflow-hidden">
+              <div className={`px-5 py-4 border-b flex items-center gap-3 ${
+                burnResult.errors.length === 0
+                  ? 'bg-emerald-500/10 border-emerald-500/20'
+                  : burnResult.burned > 0
+                  ? 'bg-amber-500/10 border-amber-500/20'
+                  : 'bg-red-500/10 border-red-500/20'
+              }`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  burnResult.errors.length === 0
+                    ? 'bg-emerald-500/20'
+                    : burnResult.burned > 0
+                    ? 'bg-amber-500/20'
+                    : 'bg-red-500/20'
+                }`}>
+                  <svg className={`w-5 h-5 ${
+                    burnResult.errors.length === 0
+                      ? 'text-emerald-400'
+                      : burnResult.burned > 0
+                      ? 'text-amber-400'
+                      : 'text-red-400'
+                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d={burnResult.errors.length === 0
+                        ? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        : "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"} />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">Session Complete</p>
+                  <p className={`text-[10px] ${
+                    burnResult.errors.length === 0 ? 'text-emerald-400/80' : 'text-amber-400/80'
+                  }`}>
+                    {burnResult.total === 0
+                      ? 'No claimed tokens to burn today'
+                      : `${burnResult.burned}/${burnResult.total} tokens burned`}
+                  </p>
+                </div>
+              </div>
+              <div className="p-5">
+                {burnResult.total === 0 && (
+                  <p className="text-sm text-slate-400 mb-5">No tokens were claimed during this session today.</p>
+                )}
+                {burnResult.burned > 0 && (
+                  <p className="text-sm text-slate-300 mb-3">
+                    Successfully burned {burnResult.burned} token{burnResult.burned !== 1 ? 's' : ''} on Cardano.
+                  </p>
+                )}
+                {burnResult.errors.length > 0 && (
+                  <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <p className="text-xs font-semibold text-red-400 mb-1">
+                      {burnResult.errors.length} error{burnResult.errors.length !== 1 ? 's' : ''}:
+                    </p>
+                    <ul className="space-y-1">
+                      {burnResult.errors.map((err, i) => (
+                        <li key={i} className="text-[11px] text-red-300/80">{err}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <button
+                  onClick={handleBack}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  Return to Dashboard
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

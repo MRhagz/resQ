@@ -108,3 +108,127 @@ async function redeemStub(
 
   return { status: 'success', message: 'Aid successfully distributed! Claim stub redeemed.' }
 }
+
+/**
+ * END SESSION — Burns all claimed-but-unburned stubs for this worker today.
+ *
+ * Called when the relief worker ends their distribution session.
+ * Each stub is burned individually via multi-sig (admin + worker + beneficiary).
+ */
+export async function endSession(disasterId: string, aidType: string) {
+  if (!disasterId || !aidType) {
+    return { burned: 0, total: 0, errors: ['Missing disasterId or aidType.'] }
+  }
+
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { burned: 0, total: 0, errors: ['Unauthorized'] }
+
+  // Start of today in UTC
+  const todayStart = new Date()
+  todayStart.setUTCHours(0, 0, 0, 0)
+
+  // 1. Fetch claimed stubs pending burn for this worker, disaster, and aid type today
+  const { data: pendingStubs, error } = await supabase
+    .from('claim_stubs')
+    .select('id, beneficiary_uuid, disaster_event_id, aid_type, agency, approved_by')
+    .eq('claimed_by', user.id)
+    .eq('disaster_event_id', disasterId)
+    .eq('aid_type', aidType)
+    .eq('claimed', true)
+    .is('burned_at', null)
+    .not('mint_tx_hash', 'is', null)
+    .gte('claimed_at', todayStart.toISOString())
+
+  if (error) {
+    console.error('[EndSession] Failed to fetch pending stubs:', error)
+    return { burned: 0, total: 0, errors: [error.message] }
+  }
+
+  if (!pendingStubs || pendingStubs.length === 0) {
+    return { burned: 0, total: 0, errors: [] }
+  }
+
+  // 2. Fetch disaster details (system_code + campaign dates for time-lock policy)
+  const { data: disaster } = await supabase
+    .from('disaster_events')
+    .select('system_code, starts_at, ends_at')
+    .eq('id', disasterId)
+    .single()
+
+  if (!disaster) {
+    return { burned: 0, total: pendingStubs.length, errors: ['Disaster event not found.'] }
+  }
+
+  // 3. Fetch worker's own wallet profile
+  const { data: workerProfile } = await supabase
+    .from('staff_profiles')
+    .select('id, wallet_index, wallet_address')
+    .eq('id', user.id)
+    .single()
+
+  if (!workerProfile) {
+    return { burned: 0, total: pendingStubs.length, errors: ['Worker wallet profile not found.'] }
+  }
+
+  // 4. Fetch admin wallet profiles (approved_by)
+  const adminIds = [...new Set(pendingStubs.map(s => s.approved_by))]
+  const { data: adminsData } = await supabase
+    .from('staff_profiles')
+    .select('id, wallet_index, wallet_address')
+    .in('id', adminIds)
+  const adminMap: Record<string, { id: string; wallet_index: number; wallet_address: string }> =
+    Object.fromEntries((adminsData || []).map(a => [a.id, a]))
+
+  // 5. Fetch beneficiary wallet profiles
+  const beneficiaryUuids = [...new Set(pendingStubs.map(s => s.beneficiary_uuid))]
+  const { data: beneficiariesData } = await supabase
+    .from('beneficiaries')
+    .select('system_uuid, wallet_index, wallet_address')
+    .in('system_uuid', beneficiaryUuids)
+  const beneficiaryMap: Record<string, { system_uuid: string; wallet_index: number; wallet_address: string }> =
+    Object.fromEntries((beneficiariesData || []).map(b => [b.system_uuid, b]))
+
+  // 6. Burn each stub individually via multi-sig
+  const { burnIndividualMultiSigStub } = await import('@/lib/blockchain/burnClaimStubs')
+
+  let totalBurned = 0
+  const errors: string[] = []
+
+  for (const stub of pendingStubs) {
+    const adminProfile = adminMap[stub.approved_by]
+    const beneficiaryProfile = beneficiaryMap[stub.beneficiary_uuid]
+
+    if (!adminProfile || !beneficiaryProfile) {
+      const missing = []
+      if (!adminProfile) missing.push('Admin')
+      if (!beneficiaryProfile) missing.push('Beneficiary')
+      errors.push(`Stub ${stub.id}: missing ${missing.join(', ')} profile`)
+      continue
+    }
+
+    const campaign = {
+      disasterCode: disaster.system_code,
+      aidType: stub.aid_type,
+      agency: stub.agency,
+      startsAt: disaster.starts_at,
+      endsAt: disaster.ends_at,
+    }
+
+    try {
+      const txHash = await burnIndividualMultiSigStub(campaign, adminProfile, workerProfile, beneficiaryProfile)
+
+      await supabase
+        .from('claim_stubs')
+        .update({ burn_tx_hash: txHash, burned_at: new Date().toISOString() })
+        .eq('id', stub.id)
+
+      totalBurned++
+    } catch (err: any) {
+      errors.push(`Stub ${stub.id}: ${err.message || err}`)
+    }
+  }
+
+  return { burned: totalBurned, total: pendingStubs.length, errors }
+}

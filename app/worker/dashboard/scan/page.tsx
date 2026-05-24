@@ -1,5 +1,10 @@
+import { Suspense } from 'react'
 import QRScanClient from './QRScanClient'
 
 export default function ScanPage() {
-  return <QRScanClient />
+  return (
+    <Suspense>
+      <QRScanClient />
+    </Suspense>
+  )
 }
